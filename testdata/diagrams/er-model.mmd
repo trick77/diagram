@@ -1,0 +1,12 @@
+erDiagram
+  ORDER ||--o{ LINE : holds
+  LINE ||--o{ DISCOUNT : applies
+  ORDER ||--o| INVOICE : "is billed as"
+  ORDER {
+    int id
+    string reference
+  }
+  LINE {
+    int ordinal
+    string article
+  }

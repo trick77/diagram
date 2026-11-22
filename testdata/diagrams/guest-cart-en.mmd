@@ -1,0 +1,12 @@
+sequenceDiagram
+    participant Browser
+    participant WebShop
+    participant AccountService
+    participant CartService
+    Browser->>WebShop: Login request
+    WebShop->>AccountService: Authenticate user
+    AccountService-->>WebShop: Customer ID
+    WebShop->>CartService: Merge session cart into customer cart
+    Note over CartService: Add session items to customer cart, delete session cart
+    CartService-->>WebShop: Merge response
+    WebShop-->>Browser: Login cookie set

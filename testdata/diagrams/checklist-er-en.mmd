@@ -1,0 +1,8 @@
+erDiagram
+    OrderChecklist ||--o{ ChecklistItem : "holds"
+    ChecklistItem ||--o{ ItemFinding : "judged as"
+    OrderReview ||--o{ ItemFinding : "records"
+    Verdict ||--o{ ItemFinding : "classifies"
+    ItemFinding }o--o{ OrderResult : "summarised in"
+    OrderBrief ||--|| OrderResult : "yields"
+    OrderStatus ||--o{ OrderResult : "labels"

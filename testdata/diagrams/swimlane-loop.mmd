@@ -1,0 +1,25 @@
+flowchart LR
+  subgraph req["Requester"]
+    r1(["Submit purchase request"])
+    r2["Revise request"]
+  end
+  subgraph app["Approver"]
+    a1["Review request"]
+    a2{"Within budget?"}
+  end
+  subgraph buy["Purchasing"]
+    p1["Order from supplier"]:::focus
+    p2["Receive goods"]
+  end
+  subgraph fin["Finance"]
+    f1["Pay invoice"]
+    f2(["Close request"])
+  end
+  r1 --> a1
+  a1 --> a2
+  a2 -->|"yes"| p1
+  a2 -->|"no"| r2
+  r2 --> a1
+  p1 --> p2
+  p2 -->|"invoice"| f1
+  f1 --> f2

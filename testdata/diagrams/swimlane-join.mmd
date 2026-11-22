@@ -1,0 +1,21 @@
+flowchart LR
+  subgraph a["Sales"]
+    s1["Take order"] --> s2["Check credit"]
+  end
+  subgraph b["Warehouse"]
+    w1["Pick items"]
+    w2["Pack parcel"]
+  end
+  subgraph c["Billing"]
+    b1["Create invoice"]
+    b2["Send invoice"]
+  end
+  subgraph a2["Sales"]
+    s3["Confirm shipment"]
+  end
+  s2 -->|"ok"| w1
+  s2 -->|"ok"| b1
+  w1 --> w2
+  b1 --> b2
+  w2 --> s3
+  b2 --> s3

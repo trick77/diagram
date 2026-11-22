@@ -1,0 +1,21 @@
+classDiagram-v2
+  direction LR
+  class Invoice {
+    +string number
+    +Date issued
+    +total() Money
+  }
+  class InvoiceLine {
+    +int quantity
+    +Money price
+  }
+  class Customer {
+    +string name
+  }
+  class Address {
+    +string street
+    +string city
+  }
+  Invoice "1" *-- "1..*" InvoiceLine : contains
+  Customer "1" o-- "0..*" Invoice
+  Customer *-- Address

@@ -1,0 +1,17 @@
+classDiagram
+  class Repository~T~ {
+    <<abstract>>
+    +findAll() List~T~
+    +findById(string id) Optional~T~
+    +save(T item)*
+    +count() int$
+  }
+  class OrderRepository {
+    +findOpen() List~Order~
+  }
+  class Order {
+    +string id
+    +Map<string, int> quantities
+  }
+  Repository~T~ <|-- OrderRepository
+  OrderRepository ..> Order : loads

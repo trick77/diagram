@@ -1,0 +1,6 @@
+flowchart TD
+  a(["Search()"]) --> b{"results empty?"}
+  b -->|"yes"| c(["NothingFound"])
+  b -->|"no"| d["Rank the results"]
+  d --> e["Group by category"]
+  e --> f(["Results shown"])

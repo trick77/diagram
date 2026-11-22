@@ -1,0 +1,15 @@
+flowchart TD
+  v["Validierung der Lieferadresse"] --> d{"Dublette gefunden?"}
+  d -->|"ja, mit Kundennummer"| r["Dubletten-Ergebnis zurückgeben"]
+  d -->|"ja, ohne Kundennummer"| x["Bestellung abgelehnt"]
+  d -->|"nein"| z{"Bonitätsprüfung aktiviert?"}
+  z -->|"nein"| ok["Bestellung gültig"]
+  z -->|"ja"| sv{"Steuernummer erfasst?"}
+  sv -->|"nein"| ok
+  sv -->|"ja"| g["Zahlungsziel bei der Auskunftei abfragen"]:::focus
+  g --> b{"Belastbare Antwort?"}
+  b -->|"exaktes Datum geliefert"| di{"Datum identisch?"}:::focus
+  b -->|"kein Fehler, kein exaktes Datum"| ok
+  b -->|"Steuernummer unbekannt"| no["Bestellung abgelehnt"]:::focus
+  di -->|"ja"| ok
+  di -->|"nein"| no

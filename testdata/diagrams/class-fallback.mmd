@@ -1,0 +1,6 @@
+classDiagram
+  class Repository~T~ {
+    +List<T> items
+    +find(id) T
+  }
+  Repository <|-- OrderRepository

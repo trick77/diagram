@@ -1,0 +1,9 @@
+flowchart TD
+    a["Auftragseingang prüfen"] --> b["Positionen aus Warenkorb laden"]
+    b --> c["Betrag berechnen"]:::focus
+    c --> d["Betrag an Zahlungsdienst senden"]
+    d{"Zahlung erlaubt?"}:::focus
+    d -- "ja" --> e["Versand beauftragen"]
+    e --> f["Auftrag mit Betrag speichern"]
+    d -- "nein" --> g["Auftrag abgelehnt"]
+:::focus

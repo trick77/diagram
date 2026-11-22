@@ -1,0 +1,13 @@
+flowchart LR
+  subgraph a["Clerk"]
+    c1["Receive claim"] --> c2{"Type?"}
+    c2 -->|"small"| c3["Pay at once"]
+    c2 -->|"large"| c4["Collect evidence"]
+  end
+  subgraph b["Assessor"]
+    x1["Assess claim"]
+    x2["Decide"]
+  end
+  c4 --> x1 --> x2
+  x2 -->|"rework"| c4
+  x2 --> c3

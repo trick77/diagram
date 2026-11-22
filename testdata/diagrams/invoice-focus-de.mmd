@@ -1,0 +1,8 @@
+flowchart TD
+    a["Bestellung aufgeben"] --> b["Positionen laden"]
+    b --> c["Betrag berechnen"]:::focus
+    c --> d{"Zahlung autorisiert?"}
+    d -- "ja" --> e["Versand auslösen"]
+    e --> f["Bestellung speichern"]
+    d -- "nein" --> g["Bestellung abgelehnt"]
+:::focus

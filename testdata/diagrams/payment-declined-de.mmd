@@ -1,0 +1,16 @@
+flowchart TD
+    a["Bestellung aufgeben"]
+    b{"Betrag gültig?"}
+    c{"Schwellenwert überschritten?"}
+    d["Zahlung ablehnen"]
+    e["Zahlung autorisieren"]
+    f["Bestellung bestätigen"]
+    g["Fehlermeldung anzeigen"]
+
+    a --> b
+    b -- Ja --> c
+    b -- Nein --> d
+    c -- Ja --> d
+    c -- Nein --> e
+    e --> f
+    d --> g

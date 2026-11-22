@@ -1,0 +1,10 @@
+flowchart TB
+    area(["Product area"]) --> plan["Planning"]
+    area --> deliver["Delivery"]
+    plan --> road["Roadmap"]
+    plan --> research["User research"]
+    deliver --> build["Build"]
+    deliver --> release["Release"]
+    build --> unit["Unit tests"]
+    build --> review["Code review"]:::focus
+    release --> stage["Staging check"]

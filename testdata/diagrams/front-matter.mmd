@@ -1,0 +1,7 @@
+---
+title: Order flow
+---
+flowchart TD
+  a["Order placed"] --> b{"In stock?"}
+  b -->|"yes"| c["Ship"]
+  b -->|"no"| d["Back-order <item>"]

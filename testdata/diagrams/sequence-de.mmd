@@ -1,0 +1,8 @@
+sequenceDiagram
+  participant UI as Cart.tsx
+  participant API as api
+  participant C as Checkout
+  UI->>API: POST /api/orders
+  API->>C: Checkout()
+  C-->>UI: Status-Stream
+  C-)API: Belege (async)

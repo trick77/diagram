@@ -1,0 +1,6 @@
+# The gate (make check, and ship's pre-push hook) and the release, see github.com/trick77/ship.
+# No Go: a TypeScript package, its package.json at the root so npm installs it from git.
+tag_prefix: v
+ui:
+  dir: .
+visibility: public

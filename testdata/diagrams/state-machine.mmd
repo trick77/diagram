@@ -1,0 +1,7 @@
+stateDiagram-v2
+  [*] --> Draft
+  Draft --> Shared : share()
+  Shared --> Draft : unshare()
+  Shared --> Archived : archive()
+  Draft --> Archived : archive()
+  Archived --> [*]

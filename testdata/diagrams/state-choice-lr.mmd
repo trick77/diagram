@@ -1,0 +1,12 @@
+stateDiagram-v2
+  direction LR
+  [*] --> Pending
+  Pending --> Fetching : poll()
+  state ok <<choice>>
+  Fetching --> ok
+  ok --> Indexing : Branch vorhanden
+  ok --> Failed : Branch fehlt
+  Indexing --> Current : commit
+  Failed --> Pending : nächster Zyklus
+  Current --> [*]
+  class Failed focus

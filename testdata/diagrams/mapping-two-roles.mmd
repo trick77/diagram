@@ -1,0 +1,15 @@
+flowchart LR
+  subgraph ev["Event"]
+    e1["Order placed"]
+    e2["Order cancelled"]
+    e3["Payment failed"]
+  end
+  subgraph act["Handler"]
+    h1["Reserve stock"]
+    h2["Release stock"]
+    h3["Notify customer"]
+  end
+  e1 --> h1
+  e2 --> h2
+  e3 --> h2
+  e3 --> h3

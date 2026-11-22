@@ -1,0 +1,15 @@
+flowchart TB
+  subgraph A["Abgleich mit dem Lager"]
+    a1{"Kleinbestellung?"} -->|"Nein"| a2{"Bestellung ohne Preisangaben?"}
+    a1 -->|"Ja"| a3["Leere Preisliste verlangen"]
+    a2 -->|"Ja"| a4["Ungesetzte Bestandteile; Gesamtpreis null"]
+    a2 -->|"Nein"| a5["Währung, Jahresbeträge, Lieferperiode prüfen"]
+    a5 --> a6["Ungesetzten Mengenrabatt prüfen"]
+  end
+  subgraph B["Regeln im Bestellformular"]
+    b1{"Preisangaben erforderlich?"} -->|"Geschäftskunde oder freiwilliges Abonnement; keine Kleinbestellung"| b2{"Bestellung ohne Preisangaben?"}
+    b1 -->|"Andere Kundenart oder Kleinbestellung"| b3["Bereich verbieten und löschen"]
+    b2 -->|"Ja"| b4["Begründung verlangen; Gesamtpreis löschen"]
+    b2 -->|"Nein"| b5["Beträge und Perioden prüfen"]
+    b5 --> b6["Gesamtpreis verpflichtend berechnen"]
+  end
