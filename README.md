@@ -28,7 +28,7 @@ same card.
 
 ```json
 "dependencies": {
-  "@trick77/diagram": "github:trick77/diagram#v0.1.0"
+  "@trick77/diagram": "^0.1.0"
 }
 ```
 

@@ -1,0 +1,90 @@
+name: Publish
+
+# Publishes a released version to npm with trusted publishing (OIDC, no token). Runs after a successful Release,
+# whose tag sits on the commit Release ran on. By hand for a tag npm has no version of yet:
+# gh workflow run Publish -f tag=vX.Y.Z
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish (vX.Y.Z)"
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+      - name: Version from the tag
+        id: tag
+        env:
+          WANT: ${{ inputs.tag }}
+        run: |
+          tag="$WANT"
+          if [ -z "$tag" ]; then
+            tag=$(git tag --points-at HEAD --list 'v*' | sort -V | tail -1)
+            # A Release that found nothing to release (auto bump) ends green without a tag.
+            if [ -z "$tag" ]; then
+              echo "::notice::no release tag on $(git rev-parse --short HEAD), nothing to publish"
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          # Only a plain release: a prerelease would land on npm's latest tag.
+          if ! [[ $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::'$tag' is no vX.Y.Z release tag"
+            exit 1
+          fi
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v7
+        if: steps.tag.outputs.skip != 'true'
+        with:
+          node-version: "26"
+          registry-url: https://registry.npmjs.org/
+      - if: steps.tag.outputs.skip != 'true'
+        run: npm ci --ignore-scripts
+      - if: steps.tag.outputs.skip != 'true'
+        run: npm run build
+      - if: steps.tag.outputs.skip != 'true'
+        run: npm test
+      - name: Skip a version npm already has
+        id: guard
+        if: steps.tag.outputs.skip != 'true'
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          name=$(node -p "require('./package.json').name")
+          if out=$(npm view "$name@$VERSION" version 2>&1); then
+            if [ -n "$out" ]; then
+              echo "::notice::$name@$VERSION is already on npm"
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+            fi
+          elif ! grep -q E404 <<< "$out"; then
+            # Anything but "not found" (network, registry 5xx) is no answer: stop rather than publish blind.
+            echo "::error::npm view failed: $out"
+            exit 1
+          fi
+      - name: Publish
+        if: steps.tag.outputs.skip != 'true' && steps.guard.outputs.skip != 'true'
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+        # Trusted publishing needs npm >= 11.5.1. Pinned: this step holds the OIDC token.
+        run: |
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          npx -y npm@11.21.2 publish --access public --provenance

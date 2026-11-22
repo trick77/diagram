@@ -1,6 +1,6 @@
 # diagram
 
-Diagram layout and SVG drawing for the browser, one copy for rongo, almanach and loom (`github:trick77/diagram#vX.Y.Z`).
+Diagram layout and SVG drawing for the browser, one copy for rongo, almanach and loom (npm `@trick77/diagram`).
 
 ## Working conventions
 
@@ -8,9 +8,13 @@ Diagram layout and SVG drawing for the browser, one copy for rongo, almanach and
 - Commit subjects + PR titles: Go style `area: what` (`layout: …`, `draw: …`), gated by ship; release notes list them by area.
 - Fresh clone: `ship hooks` before the first push (check, conform and init install it too); without the pre-push hook a push skips the gate.
 - Gate: `make check` (`ship check`), UI floor 75: raise tests, never a floor.
-- Release by hand: tag `vX.Y.Z` (`gh workflow run Release -f bump=auto`); each consumer then bumps its `#vX.Y.Z`.
-- Consumers import the TS sources, no build step: package.json at the root (npm installs git deps from the root
-  only), `exports` at `src/`. Sources type-check under lib ES2020 (loom): no `Array.at`, no `replaceAll`.
+- Release by hand: `gh workflow run Release -f bump=auto` tags `vX.Y.Z`; its success runs `publish.yaml`, which
+  publishes that version to npm (trusted publishing, OIDC, environment `npm-publish`, no token). The version comes
+  from the tag, package.json stays `0.0.0`. A tag npm missed: `gh workflow run Publish -f tag=vX.Y.Z`.
+  npm sets a trusted publisher only on an existing package: 0.1.0 went out by hand (`npm publish` from the tag),
+  then npmjs.com got the publisher (repo trick77/diagram, `publish.yaml`, environment `npm-publish`).
+  Dependabot bumps the consumers.
+- Consumers import the TS sources, no build step: `exports` at `src/`. Sources type-check under lib ES2020 (loom): no `Array.at`, no `replaceAll`.
 - `.`, `./check`, `./react` never import mermaid, not even transitively: almanach installs none.
 
 ## Contracts
