@@ -1,0 +1,4 @@
+flowchart TD
+    A["Receive shipment request"] --> B{"Attempt to send to queue"}
+    B -- "Success" --> C["Return shipment (queued)"]
+    B -- "Exception" --> D["Log error and return shipment (not queued)"]

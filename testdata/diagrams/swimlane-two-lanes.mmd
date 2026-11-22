@@ -1,0 +1,12 @@
+flowchart LR
+  subgraph cust["Customer"]
+    c1["Report a problem"]
+    c2["Confirm the fix"]
+  end
+  subgraph desk["Support desk"]
+    d1["Reproduce it"]
+    d2["Ship a fix"]
+  end
+  c1 --> d1
+  d1 --> d2
+  d2 -.->|"notify"| c2

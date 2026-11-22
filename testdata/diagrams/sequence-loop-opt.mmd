@@ -1,0 +1,18 @@
+sequenceDiagram
+  participant P as Poller
+  participant G as git
+  participant I as Indexer
+  participant S as Store
+  loop every cycle
+    P->>G: fetch origin
+    G-->>P: new head
+  end
+  opt head moved
+    P->>I: Index(List<File>)
+    I->>I: chunk and embed
+    I->>S: write chunks
+    S--)I: committed
+  end
+  Note over P,G: a vanished branch is an error
+  P-xG: stale ref
+  P->S: last_run_at

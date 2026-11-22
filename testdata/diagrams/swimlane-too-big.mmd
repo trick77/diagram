@@ -1,0 +1,20 @@
+flowchart LR
+  subgraph l1["Requester"]
+    a["Ask"]
+  end
+  subgraph l2["Reviewer"]
+    b["Review"]
+  end
+  subgraph l3["Approver"]
+    c["Approve"]
+  end
+  subgraph l4["Purchasing"]
+    d["Order"]
+  end
+  subgraph l5["Warehouse"]
+    e["Receive"]
+  end
+  subgraph l6["Finance"]
+    f["Pay"]
+  end
+  a --> b --> c --> d --> e --> f

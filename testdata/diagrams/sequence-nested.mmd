@@ -1,0 +1,11 @@
+sequenceDiagram
+  participant C as Checkout
+  participant P as payments
+  loop until delivered
+    C->>P: stream
+    alt nothing delivered
+      P-->>C: error
+    else delivered
+      P-->>C: receipt
+    end
+  end

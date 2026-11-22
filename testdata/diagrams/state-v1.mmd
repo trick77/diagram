@@ -1,0 +1,7 @@
+stateDiagram
+  [*] --> Open
+  Open --> Paid : pay()
+  Paid --> Shipped : ship()
+  Open --> Cancelled : cancel()
+  Shipped --> [*]
+  Cancelled --> [*]

@@ -1,0 +1,31 @@
+sequenceDiagram
+    participant BS as Bestelldienst
+    participant BD as Benutzerdienst
+    participant AD as Adressendienst
+    participant KD as Kartendienst
+    participant WK as Warenkorbdienst
+    participant ZA as Zahlungsdienst
+    participant VS as Versanddienst
+
+    par Parallel: Daten abrufen
+        BS->>BD: Kundendaten abrufen
+        BD-->>BS: Kunde
+    and
+        BS->>AD: Adresse abrufen
+        AD-->>BS: Rechnungsadresse
+    and
+        BS->>KD: Karte abrufen
+        KD-->>BS: Zahlungskarte
+    and
+        BS->>WK: Warenkorbartikel abrufen
+        WK-->>BS: Artikelliste
+    end
+    BS->>ZA: Zahlung autorisieren
+    ZA-->>BS: Autorisierungsantwort
+    alt Zahlung abgelehnt
+        BS-->>BS: Bestellung ablehnen
+    else Zahlung genehmigt
+        BS->>VS: Lieferung beauftragen
+        VS-->>BS: Lieferungsbestätigung
+        BS->>BS: Bestellung speichern
+    end

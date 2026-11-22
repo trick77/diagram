@@ -1,0 +1,4 @@
+graph LR
+  a["Cart"] --> b{"In stock?"}
+  b -->|"yes"| c["Reserve items"]
+  b -->|"no"| d["Notify customer"]

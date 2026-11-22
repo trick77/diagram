@@ -1,0 +1,17 @@
+flowchart LR
+  subgraph Ereignis
+    e1["Kundenauftrag eingegangen"]
+    e2["Nachlieferung eingegangen"]
+    e3["Lieferschein erstellt"]
+  end
+  subgraph Topic
+    t1["Benachrichtigung"]
+    t2["Rückgabeprüfung"]
+    t3["Lieferschein"]
+    t4["Digitale ID"]
+  end
+  e1 --> t1
+  e1 -->|"ID-Prüfung nötig"| t4
+  e2 --> t1
+  e2 -->|"nur mit Zeiträumen"| t2
+  e3 --> t3

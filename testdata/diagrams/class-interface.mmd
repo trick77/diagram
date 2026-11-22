@@ -1,0 +1,28 @@
+classDiagram
+  class PaymentMethod {
+    <<interface>>
+    +authorize(amount Money) bool
+    +refund(amount Money) bool
+  }
+  class CardPayment {
+    -string cardToken
+    +authorize(amount Money) bool
+    +refund(amount Money) bool
+  }
+  class BankTransfer {
+    -string account
+    +authorize(amount Money) bool
+    +refund(amount Money) bool
+  }
+  class Order:::focus {
+    +string id
+    +Money total
+    +pay() bool
+  }
+  class Customer {
+    +string name
+  }
+  PaymentMethod <|.. CardPayment
+  PaymentMethod <|.. BankTransfer
+  Customer "1" --> "*" Order : places
+  Order "*" --> "1" PaymentMethod : paid with
