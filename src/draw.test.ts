@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { drawFlow, drawSequence, route, shorten } from "./draw";
 import type { SeqRow } from "./ir";
-import type { FlowLayout, NodeBox } from "./layout";
+import type { FlowLayout, LabelBox, NodeBox } from "./layout";
 import { layoutSequence } from "./sequence";
 import type { Palette } from "./theme";
 
@@ -197,6 +197,44 @@ describe("drawFlow", () => {
   });
 });
 
+describe("drawFlow's arrow labels", () => {
+  const withLabel = (label: Partial<LabelBox>) =>
+    parse(
+      drawFlow(
+        layout({
+          edges: [
+            {
+              from: "a",
+              to: "b",
+              points: [
+                { x: 0, y: 0 },
+                { x: 0, y: 40 },
+              ],
+              dashed: false,
+              warn: false,
+              head: "end",
+              label: { lines: ["YES"], x: 8, y: 10, w: 20, h: 15, ...label },
+            },
+          ],
+        }),
+        pal,
+        "t",
+      ),
+    ).querySelector("text")!;
+
+  it("sets a label at its box's size and tracking", () => {
+    const t = withLabel({ size: 10, track: 0.08 });
+    expect(t.getAttribute("font-size")).toBe("10");
+    expect(t.getAttribute("letter-spacing")).toBe("0.08em");
+  });
+
+  it("draws a box a consumer laid out without them as it always did", () => {
+    const t = withLabel({});
+    expect(t.getAttribute("font-size")).toBe("11.5");
+    expect(t.getAttribute("letter-spacing")).toBeNull();
+  });
+});
+
 describe("route", () => {
   it("joins two runs with a quarter arc of 8px", () => {
     expect(
@@ -340,8 +378,12 @@ describe("drawSequence", () => {
 
   it("dashes lifelines and replies, and ends each arrow in its own head", () => {
     const doc = parse(drawSequence(seqLayout(), pal, "s"));
+    // Upright and in the line colour: a note's rule is upright too, in the
+    // muted.
     const lifelines = [...doc.querySelectorAll("line")].filter(
-      (x) => x.getAttribute("x1") === x.getAttribute("x2"),
+      (x) =>
+        x.getAttribute("x1") === x.getAttribute("x2") &&
+        x.getAttribute("stroke") === pal.line,
     );
     expect(lifelines).toHaveLength(3);
     for (const x of lifelines)
@@ -383,9 +425,34 @@ describe("drawSequence", () => {
       expect(prev.tagName).toBe("rect");
       return prev.getAttribute("fill");
     };
-    expect(patchOf("call")).toBe(pal.tint);
-    expect(patchOf("async")).toBe(pal.surface);
+    expect(patchOf("CALL")).toBe(pal.tint);
+    expect(patchOf("ASYNC")).toBe(pal.surface);
     expect(patchOf("delivered")).toBe(pal.tint);
+  });
+
+  it("sets a message's text as a note on its arrow: muted mono capitals, tracked", () => {
+    const doc = parse(drawSequence(seqLayout(), pal, "s"));
+    const t = [...doc.querySelectorAll("text")].find(
+      (x) => x.textContent === "CALL",
+    )!;
+    expect(t.getAttribute("fill")).toBe(pal.muted);
+    expect(t.getAttribute("font-family")).toBe(pal.mono);
+    expect(t.getAttribute("font-size")).toBe("10");
+    expect(t.getAttribute("letter-spacing")).toBe("0.08em");
+  });
+
+  it("draws a note as an aside: a tinted patch with a rule on its left, no frame", () => {
+    const doc = parse(drawSequence(seqLayout(), pal, "s"));
+    const t = [...doc.querySelectorAll("text")].find(
+      (x) => x.textContent === "a note",
+    )!;
+    expect(t.getAttribute("fill")).toBe(pal.muted);
+    const rule = t.previousElementSibling!;
+    expect(rule.tagName).toBe("line");
+    expect(rule.getAttribute("x1")).toBe(rule.getAttribute("x2"));
+    const patch = rule.previousElementSibling!;
+    expect(patch.getAttribute("fill")).toBe(pal.tint);
+    expect(patch.getAttribute("stroke")).toBeNull();
   });
 
   it("titles a frame with its keyword, then its condition in the muted", () => {

@@ -343,7 +343,13 @@ export function drawSequence(
     ...l.frames.map((fr) => frameText(fr, pal)),
     ...l.messages.map((m) =>
       m.label
-        ? block(m.label, m.framed ? pal.tint : pal.surface, m.self, pal.fg, pal)
+        ? block(
+            m.label,
+            m.framed ? pal.tint : pal.surface,
+            m.self,
+            pal.muted,
+            pal,
+          )
         : "",
     ),
   ]);
@@ -902,18 +908,26 @@ function actor(a: SeqActor, pal: Palette): string {
   );
 }
 
+/** note is an aside, not a participant: a tinted patch with a rule on its
+ * left and its text in the muted. Framed, it read as one more box. */
 function note(n: SeqNote, pal: Palette): string {
   const first = n.y + n.h / 2 - ((n.lines.length - 1) * ramp.lineHeight) / 2;
+  // Square on the left, where the rule runs the full height; a rounded
+  // corner there left the rule's ends standing past the patch.
+  const r = 4;
+  const [x0, y0, x1, y1] = [n.x, n.y, n.x + n.w, n.y + n.h];
   return (
-    el("rect", {
-      x: f(n.x),
-      y: f(n.y),
-      width: f(n.w),
-      height: f(n.h),
-      rx: 6,
+    el("path", {
+      d: `M${f(x0)},${f(y0)} H${f(x1 - r)} Q${f(x1)},${f(y0)} ${f(x1)},${f(y0 + r)} V${f(y1 - r)} Q${f(x1)},${f(y1)} ${f(x1 - r)},${f(y1)} H${f(x0)} Z`,
       fill: pal.tint,
-      stroke: pal.line,
-      "stroke-width": 1,
+    }) +
+    el("line", {
+      x1: f(n.x + 1),
+      y1: f(n.y),
+      x2: f(n.x + 1),
+      y2: f(n.y + n.h),
+      stroke: pal.muted,
+      "stroke-width": 2,
     }) +
     n.lines
       .map((line, i) =>
@@ -922,7 +936,7 @@ function note(n: SeqNote, pal: Palette): string {
           {
             x: f(n.x + notePad),
             y: f(first + i * ramp.lineHeight),
-            fill: pal.fg,
+            fill: pal.muted,
             "font-size": ramp.text,
             "dominant-baseline": "central",
           },
@@ -981,6 +995,7 @@ function block(
             fill,
             "font-family": t.face === "mono" ? pal.mono : undefined,
             "font-size": t.size,
+            "letter-spacing": t.track ? `${t.track}em` : undefined,
             "text-anchor": start ? "start" : "middle",
             "dominant-baseline": "central",
           },
@@ -1037,7 +1052,12 @@ function edge(e: EdgeRoute, pal: Palette, ids: string): string {
 }
 
 function label(m: LabelBox, fill: string, pal: Palette): string {
-  const attrs = { fill, "font-family": pal.mono, "font-size": ramp.label };
+  const attrs = {
+    fill,
+    "font-family": pal.mono,
+    "font-size": m.size ?? ramp.label,
+    "letter-spacing": m.track ? `${m.track}em` : undefined,
+  };
   if (m.vertical) {
     const cx = m.x + m.w / 2;
     const cy = m.y + m.h / 2;

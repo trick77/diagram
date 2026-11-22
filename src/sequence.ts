@@ -1,5 +1,5 @@
 import type { Point } from "./layout";
-import { looksLikeCode } from "./layout";
+import { arrowNote, looksLikeCode } from "./layout";
 import type { SeqHead, SequenceIR } from "./ir";
 import { ramp, textWidth, wrap, type Face } from "./theme";
 
@@ -22,6 +22,8 @@ export type TextBlock = {
   lines: string[];
   face: Face;
   size: number;
+  /** Letter-spacing, em: an arrow's note is tracked. */
+  track?: number;
   x: number;
   y: number;
   w: number;
@@ -129,21 +131,32 @@ const dividerGap = 6;
 
 const up = (v: number) => Math.ceil(v);
 
-type Style = { face: Face; size: number; lineH: number };
+type Style = {
+  face: Face;
+  size: number;
+  lineH: number;
+  track?: number;
+  upper?: boolean;
+};
 
-/** A message's text: a name from the code in the mono, else the sans. */
+/** A message's text: a note on its arrow, as a flow's (layout.ts
+ * arrowNote), the participants it joins carrying the picture. */
 function messageStyle(label: string): Style {
-  return looksLikeCode(label)
-    ? { face: "mono", size: ramp.code, lineH: textLine }
-    : { face: "sans", size: ramp.text, lineH: textLine };
+  const s = arrowNote(label);
+  return {
+    face: "mono",
+    size: s.size,
+    lineH: textLine,
+    track: s.track,
+    upper: s.text !== label,
+  };
 }
 const noteStyle: Style = {
   face: "sans",
   size: ramp.text,
   lineH: ramp.lineHeight,
 };
-/** A frame's or a divider's condition: the small mono, as a flow's arrow
- * label. */
+/** A frame's or a divider's condition: the small mono. */
 const condStyle: Style = { face: "mono", size: ramp.label, lineH: condLine };
 
 /** text is a label wrapped at max and measured, not yet placed. */
@@ -152,9 +165,25 @@ function text(
   max: number,
   s: Style,
 ): Omit<TextBlock, "x" | "y"> {
-  const lines = wrap(label, max, s.size, s.face);
-  const w = up(Math.max(...lines.map((l) => textWidth(l, s.size, s.face))));
-  return { lines, face: s.face, size: s.size, w, h: lines.length * s.lineH };
+  const track = s.track ?? 0;
+  const lines = wrap(
+    s.upper ? label.toUpperCase() : label,
+    max,
+    s.size,
+    s.face,
+    track,
+  );
+  const w = up(
+    Math.max(...lines.map((l) => textWidth(l, s.size, s.face, track))),
+  );
+  return {
+    lines,
+    face: s.face,
+    size: s.size,
+    track: track || undefined,
+    w,
+    h: lines.length * s.lineH,
+  };
 }
 
 /** The room between a frame's keyword and its condition. */
