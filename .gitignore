@@ -1,0 +1,10 @@
+node_modules
+.eslintcache
+npm-debug.log*
+
+# Agent & editor tooling, and the worktrees that live under .claude/.
+.claude/
+.DS_Store
+.idea/
+*.swp
+*~
