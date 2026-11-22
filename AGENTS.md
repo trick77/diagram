@@ -16,6 +16,8 @@ Diagram layout and SVG drawing for the browser, one copy for rongo, almanach and
   Dependabot bumps the consumers.
 - Consumers import the TS sources, no build step: `exports` at `src/`. Sources type-check under lib ES2020 (loom): no `Array.at`, no `replaceAll`.
 - `.`, `./check`, `./react` never import mermaid, not even transitively: almanach installs none.
+- README screenshots: `npx playwright install chromium` once, then `npx vitest run --config scripts/vitest.config.ts`
+  (unsandboxed) redraws `docs/img/*.png`; fails on a missing Plex face/weight rather than ship a fallback font.
 
 ## Contracts
 
