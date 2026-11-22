@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
 import ELK from "elkjs/lib/elk.bundled.js";
 import type { FlowEdgeIR, FlowIR, FlowNodeIR } from "./ir";
+import { textWidth } from "./theme";
 import {
   elkPoints,
   isMapping,
+  labelBox,
   layoutElk,
   layoutFlow,
   layoutMapping,
@@ -518,6 +520,69 @@ describe("looksLikeCode", () => {
       "Step [1]: gather",
     ])
       expect(looksLikeCode(s), s).toBe(false);
+  });
+});
+
+describe("labelBox", () => {
+  it("sets an arrow's prose as a note: small mono capitals, tracked", () => {
+    const b = labelBox("yes");
+    expect(b.lines).toEqual(["YES"]);
+    expect(b.size).toBe(10);
+    expect(b.track).toBe(0.08);
+    expect(b.w).toBe(Math.ceil(textWidth("YES", 10, "mono", 0.08)));
+  });
+
+  it("keeps a name from the code as written, a size up and untracked", () => {
+    const b = labelBox("archive()");
+    expect(b.lines).toEqual(["archive()"]);
+    expect(b.size).toBe(11);
+    expect(b.track).toBe(0);
+  });
+
+  it("keeps a request's path as written", () => {
+    expect(labelBox("GET /orders").lines).toEqual(["GET /orders"]);
+  });
+
+  it("keeps what capitals would change, sets the rest as prose", () => {
+    for (const s of [
+      'set state "pending"',
+      "status = paid",
+      "mark 'draft'",
+      "last_run_at",
+      "notes.md",
+      "Index(List<File>)",
+    ])
+      expect(labelBox(s).lines, s).toEqual([s]);
+    for (const [s, up] of [
+      ["read/write", "READ/WRITE"],
+      ["e.g. retry", "E.G. RETRY"],
+      ["it's the user's", "IT'S THE USER'S"],
+    ])
+      expect(labelBox(s).lines, s).toEqual([up]);
+  });
+
+  it("measures a multiplicity as written at the label size", () => {
+    const b = labelBox("0..n", false);
+    expect(b.lines).toEqual(["0..n"]);
+    expect(b.size).toBe(11.5);
+    expect(b.track).toBe(0);
+  });
+
+  it("upper-cases German as German", () => {
+    expect(labelBox("Größe ändern").lines).toEqual(["GRÖSSE ÄNDERN"]);
+  });
+});
+
+describe("a box's name", () => {
+  it("sets a step's prose in the bold, a name from the code in the plain mono", () => {
+    const l = layoutSpine(
+      flow([n("a", "Gather"), n("b", "fetch()")], [e("a", "b")]),
+    )!;
+    const a = l.nodes.find((x) => x.id === "a")!;
+    const b = l.nodes.find((x) => x.id === "b")!;
+    expect(a.bold).toBe(true);
+    expect(b.bold).toBe(false);
+    expect(b.face).toBe("mono");
   });
 });
 

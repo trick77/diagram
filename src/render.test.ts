@@ -59,7 +59,7 @@ describe("drawIR", () => {
     expect(layout).toBeNull();
     expect(svg).toMatch(/^<svg /);
     expect(svg).toContain("ORDER");
-    expect(svg).toContain("holds");
+    expect(svg).toContain("HOLDS");
   });
 
   it("hands back a flow's layout with its drawing", async () => {

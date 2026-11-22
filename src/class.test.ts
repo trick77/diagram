@@ -113,7 +113,10 @@ describe("layoutClass", () => {
     expect(l.ends[uses].to.mark).toBe("arrow");
     expect(l.ends[uses].from.card!.lines).toEqual(["1"]);
     expect(l.ends[uses].to.card!.lines).toEqual(["0..*"]);
-    expect(l.edges[uses].label!.lines).toEqual(["draws"]);
+    // Notation, not an arrow's note: the label size, solid.
+    expect(l.ends[uses].to.card!.size).toBe(11.5);
+    expect(l.ends[uses].to.card!.track).toBe(0);
+    expect(l.edges[uses].label!.lines).toEqual(["DRAWS"]);
   });
 
   it("draws composition and aggregation as diamonds at the whole", async () => {
@@ -217,7 +220,7 @@ describe("drawClass", () => {
     ).toHaveLength(2);
     expect(svg).toContain('stroke-dasharray="5 4"');
     expect(svg).toContain(">0..*</text>");
-    expect(svg).toContain(">draws</text>");
+    expect(svg).toContain(">DRAWS</text>");
   });
 
   it("fills a composition's diamond and leaves an aggregation's hollow", async () => {

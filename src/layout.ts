@@ -1,6 +1,6 @@
 import type { ElkExtendedEdge, ElkNode } from "elkjs/lib/elk-api";
 import type { FlowEdgeIR, FlowIR, FlowNodeIR } from "./ir";
-import { ramp, textWidth, wrap, type Face } from "./theme";
+import { arrowTrack, ramp, textWidth, wrap, type Face } from "./theme";
 import { layoutTree } from "./tree";
 
 /**
@@ -49,6 +49,11 @@ export type LabelBox = {
   h: number;
   /** Set along a vertical lane, read bottom to top. */
   vertical?: boolean;
+  /** The text's size and letter-spacing (em), as labelBox set them: carry
+   * them over with its lines and width. A box without them is drawn at the
+   * label size, solid, as before they existed. */
+  size?: number;
+  track?: number;
 };
 export type EdgeRoute = {
   from: string;
@@ -118,7 +123,9 @@ function styleOf(n: FlowNodeIR): Style {
   if (looksLikeCode(n.label))
     return { face: "mono", size: ramp.code, bold: false };
   if (n.shape === "pill") return { face: "sans", size: ramp.bold, bold: true };
-  return { face: "sans", size: ramp.text, bold: false };
+  // Every name in the bold: the boxes carry the picture, the arrows' notes
+  // sit a step below them. The 0.56 budget holds Plex at 600 (0.52).
+  return { face: "sans", size: ramp.text, bold: true };
 }
 
 const width1 = (n: FlowNodeIR) => {
@@ -233,14 +240,58 @@ function diamond(n: FlowNodeIR, pathW: number): NodeBox {
   return box(wrap(n.label, wMax / 2, s.size, s.face), wMax, hMax);
 }
 
-export function labelBox(text: string): {
+/** arrowNote is how an arrow's text is set: prose as a note, in tracked
+ * capitals; a name as written, a size up, untracked, since capitals would
+ * change it. */
+export function arrowNote(text: string): {
+  text: string;
+  size: number;
+  track: number;
+} {
+  return namesSomething(text)
+    ? { text, size: ramp.arrowCode, track: 0 }
+    : { text: text.toUpperCase(), size: ramp.arrow, track: arrowTrack };
+}
+
+/** namesSomething says an arrow's text holds a name or a value that
+ * capitals would change: a call, a member, a camel-cased or snake_cased
+ * name, a file, a request's path, a quoted value, an assignment. Narrower
+ * than looksLikeCode: `and/or` or `wait 1.5s` there set a box in the mono
+ * harmlessly, on an arrow they kept one label small beside its capitals. */
+function namesSomething(text: string): boolean {
+  if (/["`=]|(^|\s)'[^'\s][^']*'(\s|$)/.test(text)) return true;
+  if (/(^|\s)\/\w/.test(text)) return true;
+  return text
+    .split(/\s+/)
+    .some((t) => /\w\(|\(\)|[a-z][A-Z]|\w\[|\w_\w|[a-z]\.[a-z]{2,}/.test(t));
+}
+
+/** labelBox measures an arrow's text, set as its note (arrowNote), or as
+ * written at the label size when asNote is false (a multiplicity is
+ * notation). A consumer placing the box carries size and track over (a
+ * spread does): without them it is drawn at the label size, solid. */
+export function labelBox(
+  text: string,
+  asNote = true,
+): {
   lines: string[];
   w: number;
   h: number;
+  size: number;
+  track: number;
 } {
-  const lines = wrap(text, labelMax, ramp.label, "mono");
-  const tw = Math.max(...lines.map((l) => textWidth(l, ramp.label, "mono")));
-  return { lines, w: Math.ceil(tw), h: lines.length * labelLine };
+  const s = asNote ? arrowNote(text) : { text, size: ramp.label, track: 0 };
+  const lines = wrap(s.text, labelMax, s.size, "mono", s.track);
+  const tw = Math.max(
+    ...lines.map((l) => textWidth(l, s.size, "mono", s.track)),
+  );
+  return {
+    lines,
+    w: Math.ceil(tw),
+    h: lines.length * labelLine,
+    size: s.size,
+    track: s.track,
+  };
 }
 
 // ---- dispatch ----

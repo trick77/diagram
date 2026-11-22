@@ -260,7 +260,8 @@ function card(
   b: NodeBox,
   mark: Mark | null,
 ): LabelBox {
-  const l = labelBox(text);
+  // A multiplicity is notation, not prose: as written, at the label size.
+  const l = labelBox(text, false);
   const [end, next, turn] = pts;
   const along = (mark ? markLength[mark] : 0) + 4;
   if (end.x === next.x) {

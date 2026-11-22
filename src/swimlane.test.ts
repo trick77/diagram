@@ -102,7 +102,7 @@ describe("layoutSwimlane", () => {
     expect(p0.y).toBeLessThan(b.y + b.h / 2);
     expect(Math.abs(p0.x - (b.x + b.w / 2))).toBeLessThanOrEqual(16);
     expect(no.points).toHaveLength(3);
-    expect(no.label!.lines).toEqual(["no"]);
+    expect(no.label!.lines).toEqual(["NO"]);
   });
 
   it("dashes a loop back and runs it over the steps where under them it would cross", () => {
@@ -139,7 +139,7 @@ describe("layoutSwimlane", () => {
     const back = l.edges[2];
     const lowest = Math.max(...back.points.map((p) => p.y));
     expect(lowest).toBeGreaterThan(box(l, "b").y + box(l, "b").h);
-    expect(back.label!.lines).toEqual(["again"]);
+    expect(back.label!.lines).toEqual(["AGAIN"]);
     expect(checkSwimlane(l)).toEqual([]);
   });
 

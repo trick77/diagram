@@ -60,16 +60,25 @@ export function palette(): Palette {
 }
 
 /** The type ramp, in px, the reference's own: a node in the sans, a start or an
- * end in its bold, a name from the code in the mono, an arrow label in the
- * smaller mono. Drawn 1:1 at most: a diagram wider than its text is scaled
- * down to it, never scrolled, and read at size in the full view. */
+ * end in its bold, a name from the code in the mono, a field or a period in
+ * the smaller mono. An arrow's text is a note on the line, a step below the
+ * names it joins: prose in tracked mono capitals (`arrow`), a name from the
+ * code as written (`arrowCode`). At the label size the arrows' words
+ * competed with the boxes. Drawn 1:1 at most: a diagram wider than its text
+ * is scaled down to it, never scrolled, and read at size in the full view. */
 export const ramp = {
   text: 13,
   bold: 13.5,
   code: 12,
   label: 11.5,
+  arrow: 10,
+  arrowCode: 11,
   lineHeight: 18,
 } as const;
+
+/** An arrow note's letter-spacing, in em: capitals set solid read as
+ * shouting. */
+export const arrowTrack = 0.08;
 
 export type Face = "sans" | "mono";
 
@@ -91,16 +100,23 @@ const capital = 0.68;
 
 /** textWidth is the width a string takes at a size: a wide or full-width
  * character costs 1em, a mark nothing, any other character its face's
- * advance. */
-export function textWidth(s: string, size: number, face: Face): number {
+ * advance, and every character the letter-spacing track (em) on top. */
+export function textWidth(
+  s: string,
+  size: number,
+  face: Face,
+  track = 0,
+): number {
   let em = 0;
   for (const ch of s) {
     if (/\p{M}/u.test(ch)) continue;
-    em += wide(ch)
-      ? 1
-      : face === "sans" && /\p{Lu}/u.test(ch)
-        ? capital
-        : advance[face];
+    em +=
+      track +
+      (wide(ch)
+        ? 1
+        : face === "sans" && /\p{Lu}/u.test(ch)
+          ? capital
+          : advance[face]);
   }
   return em * size;
 }
@@ -128,13 +144,14 @@ export function wrap(
   max: number,
   size: number,
   face: Face,
+  track = 0,
 ): string[] {
   const out: string[] = [];
   for (const para of s.split("\n")) {
     let line = "";
     for (const word of para.split(" ")) {
       const next = line === "" ? word : `${line} ${word}`;
-      if (line !== "" && textWidth(next, size, face) > max) {
+      if (line !== "" && textWidth(next, size, face, track) > max) {
         out.push(line);
         line = word;
       } else {

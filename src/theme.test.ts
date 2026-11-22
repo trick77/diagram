@@ -27,6 +27,17 @@ describe("textWidth for capitals", () => {
   });
 });
 
+describe("textWidth with tracking", () => {
+  it("adds the letter-spacing per character", () => {
+    expect(textWidth("ab", 10, "mono", 0.1)).toBeCloseTo(14);
+    expect(wrap("yes and no", 30, 10, "mono", 0.1)).toEqual([
+      "yes",
+      "and",
+      "no",
+    ]);
+  });
+});
+
 describe("wrap", () => {
   it("breaks at spaces within the width and keeps the label's own breaks", () => {
     expect(wrap("Schwellenwert überschritten?", 100, 13, "sans")).toEqual([
