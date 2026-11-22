@@ -173,6 +173,11 @@ describe("unsafeSource", () => {
       expect(
         unsafeSource("flowchart TD\n  A --> B\n  classDef focus fill:#ffe9a8;"),
       ).toBeNull();
+      // The legacy names in capitals read as the browser reads them, with a
+      // `;` as without one.
+      expect(unsafeSource('flowchart TD\n  A["x &LT; y"] --> B')).toBeNull();
+      expect(unsafeSource('flowchart TD\n  A["x &LT y"] --> B')).toBeNull();
+      expect(unsafeSource('flowchart TD\n  A["x &AMP; y"] --> B')).toBeNull();
     } finally {
       vi.unstubAllGlobals();
     }

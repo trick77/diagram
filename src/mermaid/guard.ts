@@ -106,7 +106,9 @@ function htmlDecoded(text: string): string | null {
       }
       const n = name ?? "";
       if (m.endsWith(";")) {
-        if (Object.hasOwn(named, n)) return named[n];
+        // HTML also knows the four legacy names in capitals (`&LT;`).
+        const key = /^(LT|GT|AMP|QUOT)$/.test(n) ? n.toLowerCase() : n;
+        if (Object.prototype.hasOwnProperty.call(named, key)) return named[key];
         unread = true;
         return m;
       }
