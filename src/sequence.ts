@@ -186,6 +186,17 @@ function text(
   };
 }
 
+/** A frame's keyword sits in a tab at the start of its title, in tracked
+ * mono capitals: in the bold it read as one more message. */
+export const tabPad = 6;
+export const keywordTrack = 0.12;
+export function keywordWidth(keyword: string): number {
+  return (
+    textWidth(keyword.toUpperCase(), ramp.arrow, "mono", keywordTrack) +
+    2 * tabPad
+  );
+}
+
 /** The room between a frame's keyword and its condition. */
 export const keywordGap = textWidth("  ", ramp.label, "mono");
 
@@ -354,7 +365,7 @@ export function layoutSequence(ir: SequenceIR): SequenceLayout {
       // The keyword, then the condition wrapped beside it: a long
       // condition left whole widened the frame, and with it the canvas
       // every other label is scaled down in.
-      const kw = up(textWidth(r.keyword, ramp.label, "mono"));
+      const kw = up(keywordWidth(r.keyword));
       const cond =
         r.label === "" ? [] : text(r.label, condMax, condStyle).lines;
       const condW = Math.max(

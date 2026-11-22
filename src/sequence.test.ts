@@ -241,7 +241,9 @@ describe("layoutSequence", () => {
     const f = l.frames[0];
     expect(f.cond.length).toBeGreaterThan(1);
     expect(f.dividers[0].label!.lines.length).toBeGreaterThan(1);
-    expect(l.width).toBeLessThan(360);
+    // Unwrapped, the condition alone ran about 520px; the keyword's tab
+    // adds its padding.
+    expect(l.width).toBeLessThan(380);
     expect(checkSequence(l)).toEqual([]);
   });
 

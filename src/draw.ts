@@ -8,7 +8,10 @@ import type {
 } from "./layout";
 import {
   keywordGap,
+  keywordTrack,
+  keywordWidth,
   notePad,
+  tabPad,
   type SeqActor,
   type SeqFrame,
   type SeqMessage,
@@ -16,7 +19,7 @@ import {
   type SequenceLayout,
   type TextBlock,
 } from "./sequence";
-import { ramp, textWidth, type Palette } from "./theme";
+import { focusFillOf, focusWeight, frameOf, ramp, type Palette } from "./theme";
 import type { Card } from "./ir";
 import { rowLine, rowPad, tablePad, type ERLayout, type Table } from "./er";
 import type { MindBox, MindmapLayout } from "./mindmap";
@@ -433,25 +436,33 @@ function mark(end: Point, next: Point, card: Card, pal: Palette): string {
   }
 }
 
+/** headFill is a table's or a class's head: the tint, under a focus the
+ * accent's tint laid over it, so the head is marked with the rest. */
+function headFill(focus: boolean, pal: Palette): string {
+  return focus ? (focusFillOf(pal, pal.tint) ?? pal.tint) : pal.tint;
+}
+
 /** entity is a table: the frame of a box, a head in the tint under a
  * hairline, and a row per field, the columns as the layout lined them up. */
 function entity(n: NodeBox, t: Table, pal: Palette): string {
-  const stroke = n.focus ? pal.accent : pal.line;
-  const width = n.focus ? 2 : 1.2;
+  // Framed as a step is (frameOf); the focus marked whole, frame, head and
+  // rule in the accent, over a tint of it.
+  const stroke = n.focus ? pal.accent : frameOf(pal);
+  const width = n.focus ? focusWeight(pal) : 1.2;
   const r = 6;
   const head =
     t.rows.length === 0
       ? ""
       : el("path", {
           d: `M${f(n.x)},${f(n.y + t.head)} V${f(n.y + r)} Q${f(n.x)},${f(n.y)} ${f(n.x + r)},${f(n.y)} H${f(n.x + n.w - r)} Q${f(n.x + n.w)},${f(n.y)} ${f(n.x + n.w)},${f(n.y + r)} V${f(n.y + t.head)} Z`,
-          fill: pal.tint,
+          fill: headFill(n.focus, pal),
         }) +
         el("line", {
           x1: f(n.x),
           y1: f(n.y + t.head),
           x2: f(n.x + n.w),
           y2: f(n.y + t.head),
-          stroke: pal.line,
+          stroke: n.focus ? pal.accent : pal.line,
           "stroke-width": 1,
         });
   const first =
@@ -514,7 +525,7 @@ function entity(n: NodeBox, t: Table, pal: Palette): string {
     width: n.w,
     height: n.h,
     rx: r,
-    fill: pal.surface,
+    fill: n.focus ? (focusFillOf(pal) ?? pal.surface) : pal.surface,
   });
   return ground + head + name + rows + box;
 }
@@ -613,6 +624,8 @@ function relMark(
  * as tall as the layout made it. The focus takes the accent on its frame
  * and hairlines both. */
 function classBox(n: NodeBox, c: ClassBox, pal: Palette): string {
+  // The compartments' rules in the line, the frame as a step's (frameOf);
+  // the focus takes the accent on both, over a tint of it.
   const stroke = n.focus ? pal.accent : pal.line;
   const r = 6;
   const ground = el("rect", {
@@ -621,11 +634,11 @@ function classBox(n: NodeBox, c: ClassBox, pal: Palette): string {
     width: n.w,
     height: n.h,
     rx: r,
-    fill: pal.surface,
+    fill: n.focus ? (focusFillOf(pal) ?? pal.surface) : pal.surface,
   });
   const head = el("path", {
     d: `M${f(n.x)},${f(n.y + c.head)} V${f(n.y + r)} Q${f(n.x)},${f(n.y)} ${f(n.x + r)},${f(n.y)} H${f(n.x + n.w - r)} Q${f(n.x + n.w)},${f(n.y)} ${f(n.x + n.w)},${f(n.y + r)} V${f(n.y + c.head)} Z`,
-    fill: pal.tint,
+    fill: headFill(n.focus, pal),
   });
   const rule = (y: number) =>
     el("line", {
@@ -704,8 +717,8 @@ function classBox(n: NodeBox, c: ClassBox, pal: Palette): string {
     height: n.h,
     rx: r,
     fill: "none",
-    stroke,
-    "stroke-width": n.focus ? 2 : 1.2,
+    stroke: n.focus ? pal.accent : frameOf(pal),
+    "stroke-width": n.focus ? focusWeight(pal) : 1.2,
   });
   return (
     ground +
@@ -794,10 +807,10 @@ function frame(fr: SeqFrame, pal: Palette): string {
       y: f(fr.y),
       width: f(fr.w),
       height: f(fr.h),
-      rx: 10,
+      rx: 6,
       fill: pal.tint,
       stroke: pal.line,
-      "stroke-width": 1.2,
+      "stroke-width": 1,
     }) +
     fr.dividers
       .map((d) =>
@@ -825,21 +838,36 @@ function frameText(fr: SeqFrame, pal: Palette): string {
     "dominant-baseline": "central",
   };
   const lh = t.h / Math.max(1, fr.cond.length);
-  // The condition's lines all start where its first did, beside the
-  // keyword, so a wrapped one reads as one block.
-  const condX = t.x + textWidth(fr.keyword, ramp.label, "mono") + keywordGap;
+  // The keyword in a tab on the first line; the condition's lines all start
+  // where its first did, beside the tab, so a wrapped one reads as one block.
+  const tabW = keywordWidth(fr.keyword);
+  // One line tall: inside the title band the layout placed and the check
+  // tests, not past it.
+  const tabH = lh;
+  const condX = t.x + tabW + keywordGap;
   const title =
     knockout(t, pal.tint) +
+    el("rect", {
+      x: f(t.x),
+      y: f(t.y + lh / 2 - tabH / 2),
+      width: f(tabW),
+      height: tabH,
+      rx: 3,
+      fill: pal.surface,
+      stroke: pal.line,
+      "stroke-width": 1,
+    }) +
     el(
       "text",
       {
         ...mono,
-        x: f(t.x),
+        "font-size": ramp.arrow,
+        "letter-spacing": `${keywordTrack}em`,
+        x: f(t.x + tabPad),
         y: f(t.y + lh / 2),
-        fill: pal.fg,
-        "font-weight": 600,
+        fill: pal.muted,
       },
-      esc(fr.keyword),
+      esc(fr.keyword.toUpperCase()),
     ) +
     fr.cond
       .map((line, i) =>
@@ -884,7 +912,7 @@ function actor(a: SeqActor, pal: Palette): string {
       height: f(a.h),
       rx: 6,
       fill: pal.surface,
-      stroke: pal.line,
+      stroke: frameOf(pal),
       "stroke-width": 1.2,
     }) +
     a.lines
@@ -1111,30 +1139,40 @@ function node(n: NodeBox, pal: Palette): string {
       }) + el("circle", { cx, cy, r: r - 5, fill: pal.fg })
     );
   }
-  // The focus is framed in the accent at twice the weight, the reference's way
-  // of marking the steps the page is about.
-  const stroke = n.focus ? pal.accent : pal.line;
+  // The shape says the role: a step or a decision framed as firmly as the
+  // arrows joining it, a start or an end a pill in the tint (framed as
+  // firmly: a lane or a zone is in the tint too, and in the line colour the
+  // pill dissolved into it), an outcome a tinted box. The focus, the steps
+  // the page is about, is framed in the accent over a tint of it.
+  const outcome = n.kind === "outcome";
+  const pill = n.kind === "pill";
+  const stroke = n.focus ? pal.accent : outcome ? pal.line : frameOf(pal);
+  const fill = n.focus
+    ? (focusFillOf(pal) ?? pal.surface)
+    : outcome || pill
+      ? pal.tint
+      : pal.surface;
+  const width = n.focus ? focusWeight(pal) : outcome ? 1 : 1.2;
   let shape: string;
   if (n.kind === "decision") {
     const cx = n.x + n.w / 2;
     const cy = n.y + n.h / 2;
     shape = el("polygon", {
       points: `${f(cx)},${f(n.y)} ${f(n.x + n.w)},${f(cy)} ${f(cx)},${f(n.y + n.h)} ${f(n.x)},${f(cy)}`,
-      fill: pal.surface,
+      fill,
       stroke,
-      "stroke-width": n.focus ? 2 : 1.2,
+      "stroke-width": width,
     });
   } else {
-    const outcome = n.kind === "outcome";
     shape = el("rect", {
       x: n.x,
       y: n.y,
       width: n.w,
       height: n.h,
-      rx: 6,
-      fill: outcome ? pal.tint : pal.surface,
+      rx: pill ? f(n.h / 2) : 6,
+      fill,
       stroke,
-      "stroke-width": n.focus ? 2 : outcome ? 1 : 1.2,
+      "stroke-width": width,
     });
   }
   // An outcome reads from its left edge, as the reference's do; every other box
