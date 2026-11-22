@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import mermaid from "mermaid";
-import { forRenderer, unsafeSource, unsafeSvg } from "./guard";
+import { forRenderer, styleSemicolons, unsafeSource, unsafeSvg } from "./guard";
 import { escapeAngles, repair } from "./text";
 import { editorial } from "./editorial";
 import { mermaidConfig } from "./draw";
@@ -57,8 +57,33 @@ const vectors: [string, string][] = [
   ["cross-fade", `flowchart TD\n  A --> B\n  classDef x fill:cross-fade(a, b)`],
   // Markup, raw or as escapeAngles writes it: judged decoded, as drawn.
   ["raw script", `flowchart TD\n  A["<script>go()</script>"] --> B`],
-  ["raw script, any case", `flowchart TD\n  A["<SCRIPT>"] --> B`],
+  [
+    "raw script, any case, with an attribute",
+    `flowchart TD\n  A["<SCRIPT async x=1>go()</SCRIPT>"] --> B`,
+  ],
   ["raw style", `flowchart TD\n  A["<style >x</style>"] --> B`],
+  // Any tag with any attribute: a valueless one first, a quoted `>`, a
+  // line break, a handler however far in, a name inside a name.
+  [
+    "object, a valueless attribute first",
+    `flowchart TD\n  A["<object hidden data=/api/logout>"] --> B`,
+  ],
+  [
+    "link preload",
+    `flowchart TD\n  A["x<link x rel=preload imagesrcset=/x>"] --> B`,
+  ],
+  [
+    "a quoted > before a handler",
+    `flowchart TD\n  A["<div title='>' onclick=go()>"] --> B`,
+  ],
+  ["a line break in a tag", `flowchart TD\n  A["<div\nonclick=go()>"] --> B`],
+  [
+    "a handler far in",
+    `flowchart TD\n  A["<div ${"x ".repeat(400)}onclick=go()>"] --> B`,
+  ],
+  ["any tag, any attribute", `flowchart TD\n  A["<p data-x=1>"] --> B`],
+  ["a one-letter tag after a space", `flowchart TD\n  A["a <b x=1> c"] --> B`],
+  ["an acting tag after a word", `flowchart TD\n  A["List<iframe>"] --> B`],
   ["image with an attribute", `flowchart TD\n  A["<image width=1>"] --> B`],
   ["svg onload after a slash", `flowchart TD\n  A["<svg/onload=go()>"] --> B`],
   [
@@ -70,6 +95,25 @@ const vectors: [string, string][] = [
     "an event handler",
     `flowchart TD\n  A["<div onmouseover=go()>x</div>"] --> B`,
   ],
+  // Whatever precedes them: a word char made the tags generics once.
+  [
+    "script after a word",
+    `flowchart TD\n  A["List<script>go()</script>"] --> B`,
+  ],
+  ["iframe after a word", `flowchart TD\n  A["x<iframe .a=1 srcdoc=y>"] --> B`],
+  ["object after a word", `flowchart TD\n  A["x<object .a=1 data=y>"] --> B`],
+  ["embed after a word", `flowchart TD\n  A["x<embed .a=1 type=y>"] --> B`],
+  ["style after a word", `flowchart TD\n  A["x<style>"] --> B`],
+  ["html base", `flowchart TD\n  A["<base>"] --> B`],
+  ["meta", `flowchart TD\n  A["x<meta>"] --> B`],
+  ["form", `flowchart TD\n  A["x<form>"] --> B`],
+  ["noscript", `flowchart TD\n  A["x<noscript>"] --> B`],
+  ["template", `flowchart TD\n  A["x<template>"] --> B`],
+  // An attribute named broadly: `.a=`, `:x=`.
+  ["svg with an odd attribute", `flowchart TD\n  A["x<svg .a=1>"] --> B`],
+  ["link with an odd attribute", `flowchart TD\n  A["x<link :x=1>"] --> B`],
+  ["anchor after a word", `flowchart TD\n  A["x<a b=1>y</a>"] --> B`],
+  ["img after a word", `flowchart TD\n  A["List<IMG/x=1>"] --> B`],
   // A code that spells a refused construct once decoded.
   ["url() by a code in a label", `flowchart TD\n  A["#117;rl(x.png)"] --> B`],
   [
@@ -137,7 +181,10 @@ const harmless: [string, string][] = [
     `---\rconfig:\r  themeCSS: ".n{fill:red}"\r---\rflowchart TD\r  A --> B`,
   ],
   ["svg use", `flowchart TD\n  A["<svg><use/></svg>"] --> B`],
-  ["html base", `flowchart TD\n  A["<base>"] --> B`],
+  // A bare tag in capitals has no attribute: with HTML labels locked off
+  // it is text, as the oracle shows. A type named like one is a type.
+  ["a bare tag in capitals", `flowchart TD\n  A["<SCRIPT>"] --> B`],
+  ["a frame type", `flowchart TD\n  A["x<FRAME>"] --> B`],
 ];
 
 /** As draw hands a source to the renderer. */
@@ -194,12 +241,103 @@ describe("unsafeSource", () => {
       "Map<String, Object>",
       "List<Link>",
       "Optional<Source>",
+      "Optional<Object>",
+      "List<Source>",
       "Pair<A, B>",
       "Set<Image>",
+      "Map<Link, Svg>",
+      "List<Template>",
+      "Optional<Form>",
+      "Page<Frame>",
+      "Map<K, Style>",
+      "<<Template>>",
+      "<<interface>>",
     ]) {
       const src = `classDiagram\n  class Repo {\n    +${label}\n  }`;
       expect(unsafeSource(src), label).toBeNull();
       expect(unsafeSource(asDrawn(src)), label).toBeNull();
+    }
+  });
+
+  // A long line with a `<` and no `>`, or many `style` words, took seconds
+  // in a backtracking rule. Warmed up once, then well under that.
+  it("judges a long line in linear time", () => {
+    for (const line of [
+      `flowchart TD\n  A[<${"a".repeat(100_000)}`,
+      `flowchart TD\n  A[<x ${" on".repeat(30_000)}`,
+      `flowchart TD\n  A[${"<a ".repeat(30_000)}`,
+      `flowchart TD\n  A[<x on${"a".repeat(100_000)}`,
+      `flowchart TD\n  A[<a${" x".repeat(50_000)}`,
+      `flowchart TD\n  A[<${" ".repeat(100_000)}`,
+      `flowchart TD\n  A[${"#lt;a ".repeat(20_000)}`,
+      `flowchart TD\n  A[${"<a b".repeat(25_000)}`,
+      `flowchart TD\n  ${"style ".repeat(20_000)}`,
+      `flowchart TD\n  ${"classDef :".repeat(10_000)}`,
+      `flowchart TD\n  style ${":".repeat(50_000)}`,
+    ]) {
+      unsafeSource(line);
+      const t = performance.now();
+      unsafeSource(line);
+      expect(performance.now() - t, line.slice(0, 30)).toBeLessThan(200);
+    }
+  });
+
+  // mermaid's own reading of a style line's last `;`, its regexes run
+  // where they are fast, against ours on every line shape.
+  it("reads a style line's last semicolon as mermaid does", () => {
+    const theirs = (t: string) =>
+      t
+        .replace(/style.*:\S*#.*;/g, (s) => s.slice(0, -1))
+        .replace(/classDef.*:\S*#.*;/g, (s) => s.slice(0, -1));
+    const lines = [
+      "style A fill:#ffe9a8;",
+      "style A fill:#123,stroke:#456;",
+      "style A fill:#000058;stroke:#fff;",
+      "classDef a fill:#111111;stroke:#222222;",
+      "classDef x fill:#117;rl(x.png);",
+      "classDef x fill: #117;",
+      "classDef x fill:a #117;",
+      "classDef x fill:a:#117",
+      "linkStyle 0 stroke:#000058;",
+      "Style A fill:#fff;",
+      "x style y : z#1; w; v",
+      "A --> B; style A fill:#f00; style B fill:#0f0;",
+      "style classDef a:#1;b:#2;",
+      "classDef style a:#1;",
+      '  A["styled: #x; y"] --> B;',
+      "style A fill:#fff\u2028x;",
+      "style A:\u00a0#1;",
+      ";style:#;",
+    ];
+    for (const line of lines)
+      expect(styleSemicolons(line), line).toBe(theirs(line));
+    expect(styleSemicolons(lines.join("\n"))).toBe(theirs(lines.join("\n")));
+    // On every corpus source.
+    const corpus: Record<string, string> = import.meta.glob(
+      "../../testdata/diagrams/*.mmd",
+      { query: "?raw", import: "default", eager: true },
+    );
+    for (const [file, src] of Object.entries(corpus))
+      expect(styleSemicolons(src), file).toBe(theirs(src));
+    // And on random lines of the characters that matter.
+    const alphabet = [
+      "style",
+      "classDef",
+      ":",
+      "#",
+      ";",
+      " ",
+      "a",
+      "\n",
+      String.fromCharCode(0x2028),
+    ];
+    let seed = 7;
+    const next = () => (seed = (seed * 48271) % 2147483647);
+    for (let n = 0; n < 5000; n++) {
+      let s = "";
+      for (let k = next() % 14; k > 0; k--)
+        s += alphabet[next() % alphabet.length];
+      expect(styleSemicolons(s), JSON.stringify(s)).toBe(theirs(s));
     }
   });
 
@@ -232,6 +370,10 @@ describe("unsafeSource", () => {
       "---\r\ntitle: Orders\r\n---\r\nflowchart TD\r\n  A --> B",
       // Prose with a bracket and a tag-like word apart from it.
       'flowchart TD\n  A["x < a second"] --> B',
+      // A `<` then a space is never a tag, an `=` after it prose.
+      'flowchart TD\n  A["a < b and c = d"] --> B',
+      'flowchart TD\n  A["x < 5 = y"] --> B',
+      'flowchart TD\n  A["if a < script then x = 1"] --> B',
       // click and link are words outside the kinds that have them.
       "journey\n  section Browse\n    Click checkout: 5: User",
       'pie\n  "Data: raw" : 3',
@@ -266,6 +408,7 @@ describe("unsafeSvg", () => {
       `<rect data-x="javascript:go()"/>`,
       `<rect data-x="//evil.example"/>`,
       `<image href="data:text/html,x"/>`,
+      `<rect onmouseover="go()"/>`,
     ])
       expect(unsafeSvg(svg(bad)), bad).not.toBeNull();
     for (const ok of [
