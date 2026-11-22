@@ -280,6 +280,20 @@ describe("drawSwimlane", () => {
     ).toHaveLength(3);
   });
 
+  it("frames the lanes once: no second line round the drawing", () => {
+    const svg = drawSwimlane(layoutSwimlane(request)!, pal, "t");
+    // Steps are framed in the line colour too, but never at the drawing's
+    // corner: a line there is a frame round the whole.
+    const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
+    const atCorner = [...doc.querySelectorAll("rect")].filter(
+      (r) =>
+        r.getAttribute("stroke") !== null &&
+        Number(r.getAttribute("x") ?? 0) < 1 &&
+        Number(r.getAttribute("y") ?? 0) < 1,
+    );
+    expect(atCorner).toHaveLength(0);
+  });
+
   it("draws the focus in the accent, a loop back dashed, a dotted arrow in warn", () => {
     const svg = drawSwimlane(layoutSwimlane(request)!, pal, "t");
     expect(svg).toContain(`stroke="${pal.accent}"`);

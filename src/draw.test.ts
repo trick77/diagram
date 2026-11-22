@@ -55,6 +55,14 @@ describe("drawFlow", () => {
     expect(doc.querySelector("parsererror")).toBeNull();
   });
 
+  it("lays the drawing on its ground with no line round it", () => {
+    const doc = parse(drawFlow(layout(), pal, "t"));
+    const canvas = doc.documentElement.querySelector("rect")!;
+    expect(canvas.getAttribute("stroke")).toBeNull();
+    expect(canvas.getAttribute("width")).toBe("400");
+    expect(canvas.getAttribute("height")).toBe("200");
+  });
+
   it("writes model text as text, whatever it holds", () => {
     const svg = drawFlow(
       layout({
