@@ -155,6 +155,60 @@ describe("fits", () => {
     expect(fits(swim(2, 4, 25))).toBe(false);
   });
 
+  it("counts a flow's lanes as drawn when it is drawn in lanes", () => {
+    // Eight steps in a chain across the zones, top-down.
+    const zoned = (zones: number, over: Partial<FlowIR> = {}): FlowIR => {
+      const f = flow(8);
+      return {
+        ...f,
+        zones: Array.from({ length: zones }, (_, i) => ({
+          id: `z${i}`,
+          title: `Z${i}`,
+        })),
+        nodes: f.nodes.map((n, i) => ({ ...n, zone: `z${i % zones}` })),
+        edges: f.nodes.slice(1).map((n, i) => ({
+          from: `n${i}`,
+          to: n.id,
+          label: "",
+          dashed: false,
+          head: "end" as const,
+        })),
+        ...over,
+      };
+    };
+    expect(fits(zoned(5), {}, { lanes: true })).toBe(true);
+    expect(fits(zoned(6), {}, { lanes: true })).toBe(false);
+    // Zones as zones are not lanes; a map's own cap lets seven through.
+    expect(fits(zoned(7))).toBe(true);
+    expect(fits(zoned(7), { lanes: 7 }, { lanes: true })).toBe(true);
+
+    // Zones of one title are one lane: six zones, five lanes.
+    const merged = zoned(6, {
+      zones: [0, 1, 2, 3, 4, 5].map((i) => ({
+        id: `z${i}`,
+        title: `Z${i === 5 ? 0 : i}`,
+      })),
+    });
+    expect(fits(merged, {}, { lanes: true })).toBe(true);
+
+    // Steps in no zone are one more band top-down: five zones, six bands.
+    const loose = zoned(5);
+    loose.nodes.push({ id: "x", label: "x", shape: "step" });
+    loose.edges.push({
+      from: "n7",
+      to: "x",
+      label: "",
+      dashed: false,
+      head: "end",
+    });
+    expect(fits(loose, {}, { lanes: true })).toBe(false);
+
+    // Not lanes at all (left to right, a step in no zone): no lane cap, its
+    // zones are drawn as zones.
+    const asZones: FlowIR = { ...loose, direction: "LR" };
+    expect(fits(asZones, { lanes: 2 }, { lanes: true })).toBe(true);
+  });
+
   it("holds a class diagram to eight classes, twelve relations, ten members each", () => {
     const member = { text: "+x int" };
     const cls = (n: number, rels: number, fields = 0, methods = 0) => {

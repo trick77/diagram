@@ -9,8 +9,10 @@ import { editorial } from "./editorial";
 import { fits } from "../fits";
 import type { DiagramIR, MindNodeIR } from "../ir";
 import { layoutFlow, layoutSpine } from "../layout";
-import { layoutSwimlane } from "../swimlane";
+import { asFlow, layoutSwimlane } from "../swimlane";
+import { layoutBands } from "../bands";
 import { checkIR } from "../check/ir";
+import { checkSwimlane } from "../check/check";
 import { layoutTimeline } from "../timeline";
 
 /**
@@ -59,19 +61,25 @@ const declined = new Set([
   "quadrant-many-fallback.mmd",
   "class-too-big.mmd",
   "swimlane-too-big.mmd",
+  "swimlane-down-system-map.mmd",
 ]);
 
 /** The flowcharts that are trees the org chart draws. */
 const orgCharts = new Set(["tree-org-chart.mmd", "tree-four-levels.mmd"]);
 
-/** The flowcharts read as swimlanes: left to right, every step in one of
- * two or more subgraphs, and no mapping. */
+/** The flowcharts read as swimlanes: every step in one of two or more
+ * subgraphs, no mapping; top-down, with an arrow handed from one to
+ * another (drawn in bands). */
 const swimlanes = new Set([
   "swimlane-loop.mmd",
   "swimlane-two-lanes.mmd",
   "swimlane-skip.mmd",
   "swimlane-join.mmd",
   "swimlane-too-big.mmd",
+  "swimlane-five-services.mmd",
+  "swimlane-down-process.mmd",
+  "swimlane-down-repo-map.mmd",
+  "swimlane-down-system-map.mmd",
 ]);
 
 beforeAll(() => {
@@ -223,8 +231,17 @@ describe("the diagram corpus", () => {
       if (ir === null || !fits(ir)) return;
       // A swimlane is drawn in lanes, never handed to the flow layout for
       // want of a route.
-      if (ir.kind === "swimlane")
-        expect(layoutSwimlane(ir), "the lanes declined it").not.toBeNull();
+      if (ir.kind === "swimlane") {
+        const lanes =
+          ir.direction === "TB"
+            ? await layoutBands(asFlow(ir), new ELK())
+            : layoutSwimlane(ir);
+        expect(lanes, "the lanes declined it").not.toBeNull();
+        // And kept by the rules: lanes they refuse give way to the zoned
+        // flow (drawIR), and no swimlane drawn in lanes before the label
+        // rules may lose them to it.
+        expect(checkSwimlane(lanes!), "its lanes break a rule").toEqual([]);
+      }
       if (broken.has(name))
         expect(
           await checkIR(ir),

@@ -1,0 +1,59 @@
+flowchart TD
+  subgraph clients["Clients"]
+    web["Web client"]
+    phone["Phone client"]
+  end
+  subgraph entry["Entry"]
+    gate["Edge gateway"]
+    cache["Static cache"]
+  end
+  subgraph repos["Repositories"]
+    front["storefront"]
+    orders["orders"]
+    billing["billing"]
+    notices["notices"]
+    stock["stock"]
+    search["search"]
+    accounts["accounts"]
+    reports["reports"]
+  end
+  subgraph stores["Stores"]
+    db[("Relational DB")]
+    log["Event log"]
+    keys["Key cache"]
+    files["File store"]
+  end
+  subgraph external["External"]
+    cards["Card processor"]
+    mail["Mail relay"]
+    text["Text relay"]
+    tax["Tax lookup"]
+    supply["Supply system"]
+    signin["Sign-in provider"]
+  end
+  web -->|"HTTP"| cache
+  web -->|"HTTP"| gate
+  phone -->|"HTTP"| gate
+  cache -->|"HTTP"| front
+  gate -->|"HTTP"| orders
+  gate -->|"HTTP"| search
+  gate -->|"HTTP"| accounts
+  front -->|"HTTP"| orders
+  orders -->|"DB"| db
+  orders -.->|"event"| log
+  orders -->|"HTTP"| stock
+  log -.->|"event"| billing
+  log -.->|"event"| notices
+  log -.->|"event"| reports
+  billing -->|"HTTP"| cards
+  billing -->|"HTTP"| tax
+  billing -->|"DB"| db
+  notices -->|"HTTP"| mail
+  notices -->|"HTTP"| text
+  stock -->|"HTTP"| supply
+  stock -->|"DB"| keys
+  search -->|"DB"| keys
+  accounts -->|"HTTP"| signin
+  accounts -->|"DB"| db
+  reports -->|"file"| files
+  reports -->|"DB"| db

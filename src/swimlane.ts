@@ -1,5 +1,6 @@
 import type { FlowIR, SwimlaneIR } from "./ir";
 import {
+  isMapping,
   boxWidth,
   frame,
   labelBox,
@@ -88,16 +89,124 @@ export function eyebrowWidth(s: string): number {
   );
 }
 
-/** asFlow is a swimlane as the flowchart it was written as: left to right,
- * its lanes as zones. */
+/** eyebrows is each lane's name in capitals, wrapped, and the header
+ * column wide enough for the widest; an untitled lane has no line. */
+export function eyebrows(names: string[]): {
+  titles: string[][];
+  head: number;
+} {
+  const titles = names.map((t) =>
+    t === ""
+      ? []
+      : wrap(t.toUpperCase(), titleMax / (1 + tracking), ramp.label, "sans"),
+  );
+  const widest = Math.max(0, ...titles.flatMap((ls) => ls.map(eyebrowWidth)));
+  return { titles, head: Math.ceil(widest / 4) * 4 + 2 * titlePad };
+}
+
+/** asFlow is a swimlane as the flowchart it was written as, its lanes as
+ * zones. */
 export function asFlow(ir: SwimlaneIR): FlowIR {
   return {
     kind: "flow",
-    direction: "LR",
+    direction: ir.direction ?? "LR",
     nodes: ir.nodes.map(({ lane, ...n }) => ({ ...n, zone: lane })),
     edges: ir.edges,
     zones: ir.lanes,
   };
+}
+
+/** asSwimlane is a flow with every step in a zone as a swimlane, its
+ * direction kept, or null for one with a step outside every zone. */
+export function asSwimlane(ir: FlowIR): SwimlaneIR | null {
+  const zones = new Set(ir.zones.map((z) => z.id));
+  if (ir.nodes.some((n) => n.zone === undefined || !zones.has(n.zone)))
+    return null;
+  return {
+    kind: "swimlane",
+    ...(ir.direction === "TB" ? { direction: "TB" as const } : {}),
+    lanes: ir.zones,
+    nodes: ir.nodes.map(({ zone, ...n }) => ({ ...n, lane: zone! })),
+    edges: ir.edges,
+  };
+}
+
+/** laneFlow is a zoned flow as lanes take it, or null for one that is no
+ * lanes: the one reading both a mermaid source (./mermaid) and a JSON IR
+ * asked for lanes (lanesOf), so the two never disagree.
+ *
+ * Its zones are the roles holding steps, in the order written: a zone
+ * written twice (a model reopening its subgraph) and zones of one title
+ * (a role opened again for a step late in the flow) are one lane, where
+ * the role was first written; a zone with no id holds no step. Two roles
+ * at least, an arrow, none from a step to itself. A two-zone mapping
+ * (isMapping) keeps its own layout. Top-down, an arrow must hand over
+ * from one role to another: zones nothing hands between are flows side by
+ * side, each in its frame. everyZoned asks every step to sit in a role (a
+ * swimlane); bands put the rest in a last band. maxLanes caps the roles:
+ * past it, a top-down source stays a flow, drawn with zones, rather than
+ * lanes the caps hand to the renderer. */
+export function laneFlow(
+  f: FlowIR,
+  opts: { everyZoned: boolean; maxLanes?: number },
+): FlowIR | null {
+  if (
+    f.edges.length === 0 ||
+    isMapping(f) ||
+    f.edges.some((e) => e.from === e.to)
+  )
+    return null;
+  const { roles, laneOf } = rolesOf(f);
+  if (roles.length < 2) return null;
+  if (opts.maxLanes !== undefined && roles.length > opts.maxLanes) return null;
+  // A step in a zone no role holds (undeclared, or "") is in none.
+  const nodes: FlowIR["nodes"] = f.nodes.map(({ zone, ...n }) => {
+    const lane = zone === undefined ? undefined : laneOf.get(zone);
+    return lane === undefined ? n : { ...n, zone: lane };
+  });
+  if (opts.everyZoned && nodes.some((n) => n.zone === undefined)) return null;
+  const zoneOf = new Map(nodes.map((n) => [n.id, n.zone ?? ""]));
+  if (
+    f.direction === "TB" &&
+    !f.edges.some((e) => zoneOf.get(e.from) !== zoneOf.get(e.to))
+  )
+    return null;
+  return { ...f, zones: roles, nodes };
+}
+
+/** rolesOf is a flow's roles as laneFlow reads them, and the role each
+ * declared zone holding a step belongs to. */
+function rolesOf(f: FlowIR): {
+  roles: FlowIR["zones"];
+  laneOf: Map<string, string>;
+} {
+  const holds = new Set(f.nodes.map((n) => n.zone));
+  const first = new Map<string, string>();
+  const laneOf = new Map<string, string>();
+  const roles: FlowIR["zones"] = [];
+  for (const z of f.zones) {
+    if (z.id === "" || laneOf.has(z.id) || !holds.has(z.id)) continue;
+    const role = z.title !== "" ? z.title : z.id;
+    if (!first.has(role)) {
+      first.set(role, z.id);
+      roles.push(z);
+    }
+    laneOf.set(z.id, first.get(role)!);
+  }
+  return { roles, laneOf };
+}
+
+/** laneOrder is a band order by zone id as laneFlow merges the zones: a
+ * zone merged into another's lane stands for that lane, where first asked
+ * for; a zone no role holds for the steps of none, "". */
+export function laneOrder(f: FlowIR, order: string[]): string[] {
+  const { laneOf } = rolesOf(f);
+  const out: string[] = [];
+  for (const id of order) {
+    const lane = laneOf.get(id) ?? "";
+    if (!out.includes(lane)) out.push(lane);
+  }
+  return out;
 }
 
 type Side = "left" | "right" | "top" | "bottom";
@@ -105,8 +214,11 @@ type Side = "left" | "right" | "top" | "bottom";
 /** layoutSwimlane lays a swimlane out, or returns null for a shape it
  * cannot route. Its loop backs run under the steps, or over them where
  * that crosses fewer arrows: under the lane, a loop out of an upper lane
- * cut the branch a decision sent down past it. */
+ * cut the branch a decision sent down past it. A top-down swimlane is
+ * declined: its bands are the engine's (layoutBands, layoutSwimlaneChecked),
+ * and laid out here it came out on its side. */
 export function layoutSwimlane(ir: SwimlaneIR): SwimlaneLayout | null {
+  if (ir.direction === "TB") return null;
   const under = lay(ir, false);
   if (under === null || !ir.edges.length) return under;
   const over = lay(ir, true);
@@ -433,13 +545,7 @@ function lay(ir: SwimlaneIR, loopsOver: boolean): SwimlaneLayout | null {
   // Down the page: each lane as tall as its tallest stack, its corridor
   // and its name, with room above for the labels over arrows entering its
   // top steps.
-  const titles = ir.lanes.map((l) =>
-    wrap(l.title.toUpperCase(), titleMax / (1 + tracking), ramp.label, "sans"),
-  );
-  const head =
-    Math.ceil(Math.max(...titles.flatMap((ls) => ls.map(eyebrowWidth))) / 4) *
-      4 +
-    2 * titlePad;
+  const { titles, head } = eyebrows(ir.lanes.map((l) => l.title));
   const cy = new Map<string, number>();
   const laneY: number[] = [];
   const laneH: number[] = [];

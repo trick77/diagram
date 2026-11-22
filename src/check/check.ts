@@ -256,8 +256,28 @@ export function checkSwimlane(l: SwimlaneLayout): string[] {
         out.push(`${id}: outside its lane ${lane.id}`);
     }
   });
+  // A label beside its own arrow, never off in the gap between two (a map's
+  // labels floated an arrow's length from either box), and no other arrow
+  // running through it.
+  l.edges.forEach((e) => {
+    if (!e.label || e.points.length < 2) return;
+    const name = `${e.from}->${e.to}`;
+    const d = Math.min(
+      ...segments(e.points).map(([a, b]) => distance(e.label!, a, b)),
+    );
+    if (d > maxLabelGap)
+      out.push(`${name}: label ${Math.round(d)}px from its line`);
+    for (const f of l.edges) {
+      if (f === e) continue;
+      if (segments(f.points).some(([a, b]) => distance(e.label!, a, b) === 0))
+        out.push(`${name}: label under ${f.from}->${f.to}`);
+    }
+  });
   return out;
 }
+
+/** The farthest a label sits from its own line: a label's gap and a half. */
+export const maxLabelGap = 12;
 
 /** checkClass holds a class diagram to the flow's connector rules, every
  * line inside its class and every compartment tall enough for its lines,

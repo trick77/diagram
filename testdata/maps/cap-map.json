@@ -1,0 +1,401 @@
+{
+ "kind": "flow",
+ "direction": "TB",
+ "nodes": [
+  {
+   "id": "n1",
+   "label": "Web client",
+   "shape": "step",
+   "zone": "clients"
+  },
+  {
+   "id": "n2",
+   "label": "Phone client",
+   "shape": "step",
+   "zone": "clients"
+  },
+  {
+   "id": "n3",
+   "label": "Edge gateway",
+   "shape": "step",
+   "zone": "entry"
+  },
+  {
+   "id": "n4",
+   "label": "Static cache",
+   "shape": "step",
+   "zone": "entry"
+  },
+  {
+   "id": "n5",
+   "label": "storefront",
+   "shape": "step",
+   "zone": "repositories"
+  },
+  {
+   "id": "n6",
+   "label": "orders",
+   "shape": "step",
+   "zone": "repositories"
+  },
+  {
+   "id": "n7",
+   "label": "billing",
+   "shape": "step",
+   "zone": "repositories"
+  },
+  {
+   "id": "n8",
+   "label": "notices",
+   "shape": "step",
+   "zone": "repositories"
+  },
+  {
+   "id": "n9",
+   "label": "stock",
+   "shape": "step",
+   "zone": "parts"
+  },
+  {
+   "id": "n10",
+   "label": "search",
+   "shape": "step",
+   "zone": "parts"
+  },
+  {
+   "id": "n11",
+   "label": "accounts",
+   "shape": "step",
+   "zone": "shared"
+  },
+  {
+   "id": "n12",
+   "label": "reports",
+   "shape": "step",
+   "zone": "repositories"
+  },
+  {
+   "id": "n13",
+   "label": "Relational DB",
+   "shape": "step",
+   "zone": "stores"
+  },
+  {
+   "id": "n14",
+   "label": "Event log",
+   "shape": "step",
+   "zone": "stores"
+  },
+  {
+   "id": "n15",
+   "label": "Key cache",
+   "shape": "step",
+   "zone": "stores"
+  },
+  {
+   "id": "n16",
+   "label": "File store",
+   "shape": "step",
+   "zone": "stores"
+  },
+  {
+   "id": "n17",
+   "label": "Card processor",
+   "shape": "step",
+   "zone": "external"
+  },
+  {
+   "id": "n18",
+   "label": "Mail relay",
+   "shape": "step",
+   "zone": "external"
+  },
+  {
+   "id": "n19",
+   "label": "Text relay",
+   "shape": "step",
+   "zone": "external"
+  },
+  {
+   "id": "n20",
+   "label": "Tax lookup",
+   "shape": "step",
+   "zone": "external"
+  },
+  {
+   "id": "n21",
+   "label": "Supply system",
+   "shape": "step",
+   "zone": "external"
+  },
+  {
+   "id": "n22",
+   "label": "Sign-in provider",
+   "shape": "step",
+   "zone": "external"
+  }
+ ],
+ "edges": [
+  {
+   "from": "n1",
+   "to": "n4",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n1",
+   "to": "n3",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n2",
+   "to": "n3",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n4",
+   "to": "n5",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n3",
+   "to": "n6",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n3",
+   "to": "n10",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n3",
+   "to": "n11",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n5",
+   "to": "n6",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n6",
+   "to": "n13",
+   "label": "DB",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n6",
+   "to": "n14",
+   "label": "event",
+   "dashed": true,
+   "head": "end"
+  },
+  {
+   "from": "n6",
+   "to": "n9",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n14",
+   "to": "n7",
+   "label": "event",
+   "dashed": true,
+   "head": "end"
+  },
+  {
+   "from": "n14",
+   "to": "n8",
+   "label": "event",
+   "dashed": true,
+   "head": "end"
+  },
+  {
+   "from": "n14",
+   "to": "n12",
+   "label": "event",
+   "dashed": true,
+   "head": "end"
+  },
+  {
+   "from": "n7",
+   "to": "n17",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n7",
+   "to": "n20",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n7",
+   "to": "n13",
+   "label": "DB",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n8",
+   "to": "n18",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n8",
+   "to": "n19",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n9",
+   "to": "n21",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n9",
+   "to": "n15",
+   "label": "DB",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n10",
+   "to": "n15",
+   "label": "DB",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n11",
+   "to": "n22",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n11",
+   "to": "n13",
+   "label": "DB",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n12",
+   "to": "n16",
+   "label": "file",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n12",
+   "to": "n13",
+   "label": "DB",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n5",
+   "to": "n10",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n7",
+   "to": "n11",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n8",
+   "to": "n11",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n9",
+   "to": "n14",
+   "label": "event",
+   "dashed": true,
+   "head": "end"
+  },
+  {
+   "from": "n14",
+   "to": "n9",
+   "label": "event",
+   "dashed": true,
+   "head": "end"
+  },
+  {
+   "from": "n6",
+   "to": "n15",
+   "label": "DB",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n8",
+   "to": "n13",
+   "label": "DB",
+   "dashed": false,
+   "head": "end"
+  }
+ ],
+ "zones": [
+  {
+   "id": "clients",
+   "title": "Clients"
+  },
+  {
+   "id": "entry",
+   "title": "Entry"
+  },
+  {
+   "id": "repositories",
+   "title": "Repositories"
+  },
+  {
+   "id": "parts",
+   "title": "Parts"
+  },
+  {
+   "id": "shared",
+   "title": "Shared"
+  },
+  {
+   "id": "stores",
+   "title": "Stores"
+  },
+  {
+   "id": "external",
+   "title": "External"
+  }
+ ]
+}

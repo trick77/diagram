@@ -7,6 +7,7 @@ export {
   checkMindmap,
   checkSequence,
   checkSwimlane,
+  maxLabelGap,
   minLabelGap,
 } from "./check";
 export { checkQuadrant, checkTimeline } from "./plot";

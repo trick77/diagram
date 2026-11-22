@@ -15,6 +15,11 @@ import type {
 import { layoutFlow, type FlowLayout } from "../layout";
 import { asFlow } from "../swimlane";
 import { engine } from "../render";
+import systemMap from "../../testdata/maps/system-map.json";
+import repoMap from "../../testdata/maps/repo-map.json";
+import shopMap from "../../testdata/maps/shop-map.json";
+import capMap from "../../testdata/maps/cap-map.json";
+import { fits } from "../fits";
 
 const edge = (from: string, to: string): FlowEdgeIR => ({
   from,
@@ -194,6 +199,28 @@ describe("checkIR", () => {
   it("checks a swimlane handed as the flow it was drawn as", async () => {
     const drawn = await layoutFlow(asFlow(swimlane), engine);
     expect(await checkIR(swimlane, { layout: drawn })).toEqual([]);
+  });
+
+  it("checks a zoned flow in bands when asked, as drawIR draws it", async () => {
+    expect(await checkIR(systemMap as FlowIR, { lanes: true })).toEqual([]);
+    expect(await checkIR(repoMap as FlowIR, { lanes: true })).toEqual([]);
+    expect(await checkIR(shopMap as FlowIR, { lanes: true })).toEqual([]);
+  }, 20_000);
+
+  // A map at the caps takes the engine a second, three under coverage.
+  it("lays a map at almanach's caps out by the rules: 22 boxes, 33 arrows, 7 zones", async () => {
+    const cap = capMap as FlowIR;
+    expect([cap.nodes.length, cap.edges.length, cap.zones.length]).toEqual([
+      22, 33, 7,
+    ]);
+    expect(fits(cap)).toBe(false);
+    expect(fits(cap, { nodes: 22, edges: 33 })).toBe(true);
+    expect(await checkIR(cap, { lanes: true })).toEqual([]);
+  }, 20_000);
+
+  it("checks a top-down swimlane in its bands", async () => {
+    const down: SwimlaneIR = { ...swimlane, direction: "TB" };
+    expect(await checkIR(down)).toEqual([]);
   });
 
   it("checks a layout it is handed instead of laying one out", async () => {

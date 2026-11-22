@@ -79,6 +79,9 @@ export {
 } from "./class";
 export {
   asFlow,
+  asSwimlane,
+  laneFlow,
+  laneOrder,
   layoutSwimlane,
   type LaneBox,
   type SwimlaneLayout,
@@ -106,7 +109,8 @@ export {
   type DrawIROptions,
   type Rendered,
 } from "./render";
-export { layoutFlowChecked } from "./flowfit";
+export { lanesOf, layoutFlowChecked, layoutSwimlaneChecked } from "./flowfit";
+export { bandWidth, bandsOf, layoutBands, type Band } from "./bands";
 export {
   download,
   fileName,

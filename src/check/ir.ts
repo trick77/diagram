@@ -1,12 +1,12 @@
 import type { DiagramIR } from "../ir";
 import { isMapping, type FlowLayout } from "../layout";
-import { layoutFlowChecked } from "../flowfit";
+import { layoutFlowChecked, layoutSwimlaneChecked } from "../flowfit";
 import { layoutSequence, type SequenceLayout } from "../sequence";
 import { layoutER, type ERLayout } from "../er";
 import { layoutMindmap, type MindmapLayout } from "../mindmap";
 import { layoutTimeline, type TimelineLayout } from "../timeline";
 import { layoutQuadrant, type QuadrantLayout } from "../quadrant";
-import { asFlow, layoutSwimlane, type SwimlaneLayout } from "../swimlane";
+import { asFlow, type SwimlaneLayout } from "../swimlane";
 import { layoutClass, type ClassLayout } from "../class";
 import { engine, type AnyLayout } from "../render";
 import {
@@ -26,6 +26,10 @@ export type CheckIROptions = {
   layout?: AnyLayout;
   /** As drawIR takes it: false keeps a top-down tree off the org chart. */
   tree?: boolean;
+  /** As drawIR takes them: a flow with zones laid out in lanes, its bands
+   * in this order. */
+  lanes?: boolean;
+  bandOrder?: string[];
 };
 
 /** checkIR holds a diagram to the layout rules of its kind, laid out as
@@ -72,19 +76,25 @@ export async function checkIR(
       // A layout handed in is lanes only if it has them: drawIR hands back
       // the flow layout of a swimlane its lanes declined.
       const flow = asFlow(ir);
-      if (given && !("lanes" in given))
-        return check(given as FlowLayout, { written: isMapping(flow) });
-      const lanes = (given as SwimlaneLayout | undefined) ?? layoutSwimlane(ir);
-      if (lanes) return checkSwimlane(lanes);
-      return check(await layoutFlowChecked(flow, engine, { tree: opts.tree }), {
-        written: isMapping(flow),
-      });
-    }
-    case "flow":
-      return check(
+      const l =
         (given as FlowLayout | undefined) ??
-          (await layoutFlowChecked(ir, engine, { tree: opts.tree })),
-        { written: isMapping(ir) },
-      );
+        (await layoutSwimlaneChecked(ir, engine, {
+          tree: opts.tree,
+          bandOrder: opts.bandOrder,
+        }));
+      if ("lanes" in l) return checkSwimlane(l as SwimlaneLayout);
+      return check(l, { written: isMapping(flow) });
+    }
+    case "flow": {
+      const l =
+        (given as FlowLayout | undefined) ??
+        (await layoutFlowChecked(ir, engine, {
+          tree: opts.tree,
+          lanes: opts.lanes,
+          bandOrder: opts.bandOrder,
+        }));
+      if ("lanes" in l) return checkSwimlane(l as SwimlaneLayout);
+      return check(l, { written: isMapping(ir) });
+    }
   }
 }

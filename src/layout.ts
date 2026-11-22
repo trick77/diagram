@@ -322,6 +322,14 @@ export type FlowOptions = {
    * false: by the engine, as before the org chart existed (almanach's
    * pages keep that drawing). */
   tree?: boolean;
+  /** A flow with zones drawn in lanes (layoutFlowChecked, flowfit.ts):
+   * top-down, its zones as bands stacked down the page (bands.ts); left to
+   * right with every step in a zone, as a swimlane (swimlane.ts). A JSON
+   * IR asks; a mermaid source reads as a swimlane by its own shape. */
+  lanes?: boolean;
+  /** The bands' order, top to bottom, by zone id: the zones it names come
+   * first, the rest after them as written (bandsOf, bands.ts). */
+  bandOrder?: string[];
 };
 
 // ---- the spine ----

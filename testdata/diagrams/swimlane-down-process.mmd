@@ -1,0 +1,19 @@
+flowchart TD
+  subgraph req["Requester"]
+    r1(["Submit expense claim"])
+    r2["Attach missing receipt"]
+  end
+  subgraph mgr["Manager"]
+    m1["Review claim"]
+    m2{"Receipts complete?"}
+  end
+  subgraph fin["Finance"]
+    f1["Approve payment"]:::focus
+    f2(["Pay out"])
+  end
+  r1 --> m1
+  m1 --> m2
+  m2 -->|"yes"| f1
+  m2 -->|"no"| r2
+  r2 --> m1
+  f1 -.->|"next run"| f2
