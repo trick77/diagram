@@ -1,0 +1,25 @@
+flowchart TD
+  subgraph entry["Entry"]
+    rest["Public API"]
+    listener["Event consumer"]
+  end
+  subgraph parts["Parts"]
+    orders["Order flow"]
+    pricing["Price rules"]
+    store["Order records"]
+  end
+  subgraph stores["Stores"]
+    db[("Relational DB")]
+    log["Event log"]
+  end
+  subgraph external["External"]
+    tax["Tax lookup"]
+  end
+  rest -->|"call"| orders
+  listener -->|"call"| orders
+  orders -->|"call"| pricing
+  orders -->|"call"| store
+  store -->|"DB"| db
+  orders -.->|"event"| log
+  log -.->|"event"| listener
+  pricing -->|"HTTP"| tax

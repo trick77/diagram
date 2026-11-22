@@ -1,6 +1,6 @@
 import type { DiagramIR } from "./ir";
 import type { Elk, FlowLayout, FlowOptions } from "./layout";
-import { layoutFlowChecked } from "./flowfit";
+import { layoutFlowChecked, layoutSwimlaneChecked } from "./flowfit";
 import {
   drawClass,
   drawER,
@@ -15,7 +15,7 @@ import { layoutClass, type ClassLayout } from "./class";
 import { layoutER, type ERLayout } from "./er";
 import { layoutMindmap, type MindmapLayout } from "./mindmap";
 import { layoutSequence, type SequenceLayout } from "./sequence";
-import { asFlow, layoutSwimlane, type SwimlaneLayout } from "./swimlane";
+import type { SwimlaneLayout } from "./swimlane";
 import { palette, type Palette } from "./theme";
 import { layoutTimeline, type TimelineLayout } from "./timeline";
 import { layoutQuadrant, type QuadrantLayout } from "./quadrant";
@@ -106,17 +106,23 @@ export async function drawIR(
     const laid = await layoutClass(ir, await engine());
     return { svg: drawClass(laid, pal), layout: null, laid };
   }
-  if (ir.kind === "swimlane") {
-    // Laid out by code. A shape its connectors cannot route cleanly is
-    // drawn as the flow it was written as, its lanes as zones.
-    const lanes = layoutSwimlane(ir);
-    if (lanes)
-      return { svg: drawSwimlane(lanes, pal, ids), layout: lanes, laid: lanes };
-  }
-  const layout = await layoutFlowChecked(
-    ir.kind === "swimlane" ? asFlow(ir) : ir,
-    engine,
-    { tree: opts.tree },
-  );
-  return { svg: drawFlow(layout, pal, ids), layout, laid: layout };
+  // A swimlane in its lanes, left to right by code and top-down in bands;
+  // one its lanes cannot route, or route only breaking more rules, as the
+  // flow it was written as, its lanes as zones (layoutSwimlaneChecked).
+  const layout =
+    ir.kind === "swimlane"
+      ? await layoutSwimlaneChecked(ir, engine, {
+          tree: opts.tree,
+          bandOrder: opts.bandOrder,
+        })
+      : await layoutFlowChecked(ir, engine, {
+          tree: opts.tree,
+          lanes: opts.lanes,
+          bandOrder: opts.bandOrder,
+        });
+  const svg =
+    "lanes" in layout
+      ? drawSwimlane(layout as SwimlaneLayout, pal, ids)
+      : drawFlow(layout, pal, ids);
+  return { svg, layout, laid: layout };
 }

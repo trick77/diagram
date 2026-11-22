@@ -14,7 +14,8 @@
  * cannot draw honestly at all is null, and the renderer draws that as it
  * always did.
  */
-import { isMapping } from "../layout";
+import { asSwimlane, laneFlow } from "../swimlane";
+import { limits } from "../fits";
 import type {
   Card,
   ClassDiagramIR,
@@ -662,36 +663,23 @@ export function axisName(ends: string[]): string | null {
  * Subgraphs of one title are one role written twice (a model opening the
  * role's subgraph again for a step late in the flow): one lane, where the
  * role was first written. Drawn apart, the role had two bands and its
- * steps read as two people's. */
+ * steps read as two people's.
+ *
+ * Top-down, the same shape is lanes as bands down the page (bands.ts), if
+ * an arrow hands over from one subgraph to another: zones nothing hands
+ * between are flows drawn side by side, each in its frame, as they were.
+ * So is a top-down flow of more roles than the caps' lanes: as lanes it
+ * went to the renderer, as zones it was drawn. Read by laneFlow
+ * (../swimlane.ts), as a JSON IR asking for lanes is. */
 function lanes(f: FlowIR | null): FlowIR | SwimlaneIR | null {
-  if (
-    f === null ||
-    f.direction !== "LR" ||
-    f.zones.length < 2 ||
-    f.edges.length === 0 ||
-    isMapping(f) ||
-    f.nodes.some((n) => n.zone === undefined) ||
-    f.edges.some((e) => e.from === e.to)
-  )
-    return f;
-  const first = new Map<string, string>();
-  const laneOf = new Map<string, string>();
-  for (const z of f.zones) {
-    const role = z.title !== "" ? z.title : z.id;
-    if (!first.has(role)) first.set(role, z.id);
-    laneOf.set(z.id, first.get(role)!);
-  }
-  const roles = f.zones.filter((z) => laneOf.get(z.id) === z.id);
-  if (roles.length < 2) return f;
-  return {
-    kind: "swimlane",
-    lanes: roles,
-    nodes: f.nodes.map(({ zone, ...n }) => ({
-      ...n,
-      lane: laneOf.get(zone!)!,
-    })),
-    edges: f.edges,
-  };
+  if (f === null) return f;
+  const l = laneFlow(f, {
+    everyZoned: true,
+    ...(f.direction === "TB" ? { maxLanes: limits.lanes } : {}),
+  });
+  // Lanes it cannot make are the flow it was, drawn with zones: never null,
+  // which hands the source to the renderer.
+  return (l === null ? null : asSwimlane(l)) ?? f;
 }
 
 type ClassMember = { text?: string; classifier?: string };

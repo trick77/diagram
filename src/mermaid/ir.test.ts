@@ -4,6 +4,7 @@ import { toIR } from "./ir";
 import { escapeAngles } from "./text";
 import { editorial } from "./editorial";
 import { fits } from "../fits";
+import { drawIR } from "../render";
 import type {
   ClassDiagramIR,
   ERIR,
@@ -606,17 +607,69 @@ describe("toIR for a swimlane", () => {
     expect(inside.nodes).toHaveLength(3);
   });
 
-  it("keeps a flow a flow: top-down, one zone, a step outside every zone, an arrow to itself", async () => {
-    const tb = await ir(`flowchart TD
-  subgraph p["P"]
-    a
+  it("reads a top-down flow with every step in a subgraph, handed between them, as bands", async () => {
+    const s = await swimlane(`flowchart TD
+  subgraph p["Requester"]
+    a["Ask"]
   end
-  subgraph q["Q"]
-    b
+  subgraph q["Helper"]
+    b["Answer"]
   end
   a --> b
-  b --> a`);
-    expect(tb!.kind).toBe("flow");
+  b -.-> a`);
+    expect(s.direction).toBe("TB");
+    expect(s.lanes.map((l) => l.title)).toEqual(["Requester", "Helper"]);
+    expect(s.nodes.map((n) => [n.id, n.lane])).toEqual([
+      ["a", "p"],
+      ["b", "q"],
+    ]);
+  });
+
+  it("keeps a top-down flow of more roles than lanes take a flow, drawn as zones", async () => {
+    // Six roles: as lanes past the cap, to the renderer; as zones, drawn.
+    const roles = Array.from({ length: 6 }, (_, i) => i);
+    const src = `flowchart TD
+${roles.map((i) => `  subgraph r${i}["Role ${i}"]\n    n${i}["Step ${i}"]\n  end`).join("\n")}
+${roles
+  .slice(1)
+  .map((i) => `  n${i - 1} --> n${i}`)
+  .join("\n")}`;
+    const f = await ir(src);
+    expect(f!.kind).toBe("flow");
+    expect(fits(f!)).toBe(true);
+    // Left to right, six roles stay lanes, past the cap as before.
+    const lr = await ir(src.replace("flowchart TD", "flowchart LR"));
+    expect(lr!.kind).toBe("swimlane");
+  });
+
+  it("reads a subgraph reopened top-down as one lane, and draws it", async () => {
+    const s = await swimlane(`flowchart TD
+  subgraph req["Requester"]
+    a["Ask"]
+  end
+  subgraph app["Approver"]
+    b["Answer"]
+  end
+  subgraph req["Requester"]
+    c["Read the answer"]
+  end
+  a --> b
+  b --> c`);
+    expect(new Set(s.lanes.map((l) => l.id)).size).toBe(s.lanes.length);
+    const { laid } = await drawIR(s, "t");
+    expect((laid as { lanes: unknown[] }).lanes.length).toBe(s.lanes.length);
+  }, 20_000);
+
+  it("keeps a flow a flow: top-down zones nothing hands between, one zone, a step outside every zone, an arrow to itself", async () => {
+    // Two flows side by side, each in its own zone: no lanes, no handoff.
+    const apart = await ir(`flowchart TD
+  subgraph p["P"]
+    a --> c
+  end
+  subgraph q["Q"]
+    b --> d
+  end`);
+    expect(apart!.kind).toBe("flow");
     const one = await ir(`flowchart LR
   subgraph p["P"]
     a --> b

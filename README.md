@@ -15,6 +15,8 @@ text. Each drawing comes with a full view and an SVG download.
 - Flowcharts (`flowchart`, `graph`): a main path with branches, two-column mappings, grouped zones
 - Org charts (`flowchart TD` that is a tree): the root on top, children on a shared bus
 - Swimlanes (`flowchart LR`, one `subgraph` per role): a process across roles, one lane each
+- Top-down swimlanes and maps (`flowchart TD`, one `subgraph` per role or layer, an arrow handed between them): the
+  zones as bands stacked down the page, the flow running down through them
 - Mind maps (`mindmap`): the topic in the middle, branches around it, leaves beside them
 - Sequence diagrams (`sequenceDiagram`): notes and nested frames (`alt`, `loop`, `par`, ...)
 - State diagrams (`stateDiagram-v2`, `stateDiagram`)
@@ -68,6 +70,15 @@ if (fits(ir)) {
 
 `drawIR(ir, ids, { tree: false })` keeps a top-down tree on the general layout instead of drawing it as an org
 chart; `{ palette }` passes colours instead of reading the page's tokens.
+
+`drawIR(ir, ids, { lanes: true })` draws a flow with zones in lanes: top-down, its zones as bands stacked down the
+page in the order written, steps in no zone in a last band; left to right, as a swimlane. A system or repository map
+goes in as it is: its `layout` holds every box, for links laid over the drawing; `{ bandOrder }` names the zones'
+order. A map past the default caps passes its own to `fits`, its zones counted as lanes:
+`fits(ir, { nodes: 22, edges: 33, lanes: 7 }, { lanes: true })`; `checkIR(ir, { lanes: true })` checks it as drawn.
+Lanes that break more rules than the zoned flow draw as that flow. A consumer laying out without drawing calls
+`layoutFlowChecked(ir, engine, { lanes: true })` for a flow or `layoutSwimlaneChecked(ir, engine)` for a swimlane IR
+(either direction), the layout drawIR draws; `layoutSwimlane` alone takes only a left-to-right swimlane.
 
 **`./mermaid`**: draw a mermaid source; the package's own drawing where it has one, mermaid's otherwise. Results
 are cached by source. The mermaid fallback refuses a source with a link, a URL or url(), an encoded character code,

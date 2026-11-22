@@ -1,0 +1,180 @@
+{
+ "kind": "flow",
+ "direction": "TB",
+ "nodes": [
+  {
+   "id": "n1",
+   "label": "Web client",
+   "shape": "step",
+   "zone": "clients"
+  },
+  {
+   "id": "n2",
+   "label": "Phone client",
+   "shape": "step",
+   "zone": "clients"
+  },
+  {
+   "id": "n3",
+   "label": "Edge gateway",
+   "shape": "step",
+   "zone": "entry"
+  },
+  {
+   "id": "n4",
+   "label": "storefront",
+   "shape": "step",
+   "zone": "repositories"
+  },
+  {
+   "id": "n5",
+   "label": "orders",
+   "shape": "step",
+   "zone": "repositories"
+  },
+  {
+   "id": "n6",
+   "label": "billing",
+   "shape": "step",
+   "zone": "repositories"
+  },
+  {
+   "id": "n7",
+   "label": "notices",
+   "shape": "step",
+   "zone": "repositories"
+  },
+  {
+   "id": "n8",
+   "label": "Relational DB",
+   "shape": "step",
+   "zone": "stores"
+  },
+  {
+   "id": "n9",
+   "label": "Event log",
+   "shape": "step",
+   "zone": "stores"
+  },
+  {
+   "id": "n10",
+   "label": "Card processor",
+   "shape": "step",
+   "zone": "external"
+  },
+  {
+   "id": "n11",
+   "label": "Mail relay",
+   "shape": "step",
+   "zone": "external"
+  }
+ ],
+ "edges": [
+  {
+   "from": "n1",
+   "to": "n3",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n2",
+   "to": "n3",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n3",
+   "to": "n4",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n3",
+   "to": "n5",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n4",
+   "to": "n5",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n5",
+   "to": "n8",
+   "label": "DB",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n5",
+   "to": "n9",
+   "label": "event",
+   "dashed": true,
+   "head": "end"
+  },
+  {
+   "from": "n9",
+   "to": "n6",
+   "label": "event",
+   "dashed": true,
+   "head": "end"
+  },
+  {
+   "from": "n9",
+   "to": "n7",
+   "label": "event",
+   "dashed": true,
+   "head": "end"
+  },
+  {
+   "from": "n6",
+   "to": "n10",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n6",
+   "to": "n8",
+   "label": "DB",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n7",
+   "to": "n11",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  }
+ ],
+ "zones": [
+  {
+   "id": "clients",
+   "title": "Clients"
+  },
+  {
+   "id": "entry",
+   "title": "Entry"
+  },
+  {
+   "id": "repositories",
+   "title": "Repositories"
+  },
+  {
+   "id": "stores",
+   "title": "Stores"
+  },
+  {
+   "id": "external",
+   "title": "External"
+  }
+ ]
+}

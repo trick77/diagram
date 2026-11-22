@@ -1,0 +1,30 @@
+flowchart LR
+  subgraph FE["Storefront"]
+    b{"Signed in?"}
+    c["Load buyer, address, card"]
+    r1["Order turned away"]
+  end
+  subgraph OS["Orders"]
+    e{"Every detail given?"}:::focus
+    f["Price the basket"]
+    g{"Charge approved?"}:::focus
+    h["Store the order"]
+    r2["Order refused"]
+    r3["Charge refused"]
+  end
+  subgraph PS["Payments"]
+    i["Check total against limit"]
+  end
+  subgraph SH["Shipping"]
+    j["Plan the delivery"]
+  end
+  subgraph QM["Dispatch"]
+    k["Take the delivery task"]
+  end
+  b -- "no" --> r1
+  b -- "yes" --> c --> e
+  e -- "no" --> r2
+  e -- "yes" --> f --> i --> g
+  g -- "no" --> r3
+  g -- "yes" --> j --> h --> k
+  classDef focus fill:#ffe9a8,stroke:#b8860b;

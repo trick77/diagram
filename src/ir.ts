@@ -141,6 +141,10 @@ export type QuadrantIR = {
  * and arrows are a flow's. */
 export type SwimlaneIR = {
   kind: "swimlane";
+  /** Left to right (the default): lanes as rows, the flow across them.
+   * Top-down: lanes as bands stacked down the page, the flow down through
+   * them. */
+  direction?: "LR" | "TB";
   lanes: { id: string; title: string }[];
   nodes: (Omit<FlowNodeIR, "zone"> & { lane: string })[];
   edges: FlowEdgeIR[];

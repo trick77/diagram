@@ -23,7 +23,8 @@ Diagram layout and SVG drawing for the browser, one copy for rongo, almanach and
 - IR (`src/ir.ts`): almanach's Go validator (`internal/diagram`, `baseline/diagram.go`, `diagram.MapMax*`) mirrors
   the kinds almanach draws (flow, sequence, er). New kind (mindmap, timeline, …) = additive, no almanach change.
   Changed field of an existing kind = breaking minor + almanach Go PR. Its map caps (22 nodes, 33 edges),
-  frame-counting rows and `{ tree: false }` (flows stay on the engine) reach the package as options.
+  frame-counting rows, `{ tree: false }` (flows stay on the engine) and `{ lanes: true }` (a map's zones as bands,
+  bands.ts) reach the package as options.
 - Prompt rules live in the consumers (rongo `answerDiagram`, loom's prompt): a layout change can need one there.
   Judged on a number, never a hunch: a negative trigger drew 1 diagram in 19 answers, a positive one 13
   (rongo `2026-09-17-ba-diagrams.md`).

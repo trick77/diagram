@@ -1,4 +1,5 @@
 import type { DiagramIR, MindNodeIR } from "./ir";
+import { laneFlow } from "./swimlane";
 
 /**
  * The largest diagram drawn editorially. Past these the layout stops
@@ -74,9 +75,25 @@ export const limits: Limits = {
 /** fits says whether a diagram is within the limits, rongo's unless the
  * caller overrides some. almanach's maps hold more (22 nodes, 33 edges:
  * every external system is its own box, and its layout wraps rows); its
- * backend's caps go in here, changed on both sides together. */
-export function fits(ir: DiagramIR, over: Partial<Limits> = {}): boolean {
+ * backend's caps go in here, changed on both sides together. A flow drawn
+ * with `{ lanes: true }` counts its lanes as they are drawn (laneFlow):
+ * zones of one title once, and top-down one more for the band of the
+ * steps in no zone. A map passes its own cap, seven bands. One lanes do
+ * not take is drawn with zones and held to no lane cap. */
+export function fits(
+  ir: DiagramIR,
+  over: Partial<Limits> = {},
+  drawn: { lanes?: boolean } = {},
+): boolean {
   const l = { ...limits, ...over };
+  if (ir.kind === "flow" && drawn.lanes) {
+    const tb = ir.direction === "TB";
+    const lanes = laneFlow(ir, { everyZoned: !tb });
+    if (lanes !== null) {
+      const loose = tb && lanes.nodes.some((n) => n.zone === undefined);
+      if (lanes.zones.length + (loose ? 1 : 0) > l.lanes) return false;
+    }
+  }
   if (ir.kind === "sequence") {
     const rows = l.countFrames
       ? ir.rows

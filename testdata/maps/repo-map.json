@@ -1,0 +1,130 @@
+{
+ "kind": "flow",
+ "direction": "TB",
+ "nodes": [
+  {
+   "id": "n1",
+   "label": "Public API",
+   "shape": "step",
+   "zone": "entry"
+  },
+  {
+   "id": "n2",
+   "label": "Event consumer",
+   "shape": "step",
+   "zone": "entry"
+  },
+  {
+   "id": "n3",
+   "label": "Order flow",
+   "shape": "step",
+   "zone": "parts"
+  },
+  {
+   "id": "n4",
+   "label": "Price rules",
+   "shape": "step",
+   "zone": "parts"
+  },
+  {
+   "id": "n5",
+   "label": "Order records",
+   "shape": "step",
+   "zone": "parts"
+  },
+  {
+   "id": "n6",
+   "label": "Relational DB",
+   "shape": "step",
+   "zone": "stores"
+  },
+  {
+   "id": "n7",
+   "label": "Event log",
+   "shape": "step",
+   "zone": "stores"
+  },
+  {
+   "id": "n8",
+   "label": "Tax lookup",
+   "shape": "step",
+   "zone": "external"
+  }
+ ],
+ "edges": [
+  {
+   "from": "n1",
+   "to": "n3",
+   "label": "call",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n2",
+   "to": "n3",
+   "label": "call",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n3",
+   "to": "n4",
+   "label": "call",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n3",
+   "to": "n5",
+   "label": "call",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n5",
+   "to": "n6",
+   "label": "DB",
+   "dashed": false,
+   "head": "end"
+  },
+  {
+   "from": "n3",
+   "to": "n7",
+   "label": "event",
+   "dashed": true,
+   "head": "end"
+  },
+  {
+   "from": "n7",
+   "to": "n2",
+   "label": "event",
+   "dashed": true,
+   "head": "end"
+  },
+  {
+   "from": "n4",
+   "to": "n8",
+   "label": "HTTP",
+   "dashed": false,
+   "head": "end"
+  }
+ ],
+ "zones": [
+  {
+   "id": "entry",
+   "title": "Entry"
+  },
+  {
+   "id": "parts",
+   "title": "Parts"
+  },
+  {
+   "id": "stores",
+   "title": "Stores"
+  },
+  {
+   "id": "external",
+   "title": "External"
+  }
+ ]
+}

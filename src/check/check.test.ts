@@ -244,6 +244,44 @@ describe("checkSwimlane", () => {
     l.lanes[0].lines = Array.from({ length: 9 }, () => "X");
     expect(checkSwimlane(l)).toContain("p: its name is taller than its lane");
   });
+
+  it("finds a label strayed from its arrow, and one another arrow runs through", () => {
+    const l = layoutSwimlane({
+      kind: "swimlane",
+      lanes: [
+        { id: "p", title: "Requester" },
+        { id: "q", title: "Approver" },
+      ],
+      nodes: [
+        { id: "a", label: "Ask", shape: "step", lane: "p" },
+        { id: "b", label: "Wait", shape: "step", lane: "p" },
+        { id: "c", label: "Decide", shape: "step", lane: "q" },
+      ],
+      edges: [
+        { from: "a", to: "b", label: "sent", dashed: false, head: "end" },
+        { from: "b", to: "c", label: "", dashed: false, head: "end" },
+      ],
+    })!;
+    expect(checkSwimlane(l)).toEqual([]);
+    const label = l.edges[0].label!;
+    const y = label.y;
+    label.y -= 30;
+    expect(checkSwimlane(l)).toContain("a->b: label 38px from its line");
+    // Off by a fraction, the distance is said in whole pixels.
+    label.y -= 0.37;
+    expect(checkSwimlane(l)).toContain("a->b: label 38px from its line");
+    label.y += 0.37;
+    // Back beside its line, but another arrow run through it.
+    label.y = y;
+    const mid = label.x + label.w / 2;
+    l.edges[1].points = [
+      { x: mid, y: label.y - 20 },
+      { x: mid, y: label.y + label.h + 20 },
+    ];
+    expect(checkSwimlane(l)).toEqual(
+      expect.arrayContaining(["a->b: label under b->c"]),
+    );
+  });
 });
 
 describe("checkClass", () => {
