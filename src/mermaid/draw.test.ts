@@ -197,6 +197,17 @@ describe("draw and a source that could fetch", () => {
     expect(renderSvg).not.toHaveBeenCalled();
   });
 
+  // The renderer's lock makes a directive's config inert; it is stripped,
+  // not refused, so an answer asking for a dark theme still draws.
+  it("hands the renderer a directive's source without it", async () => {
+    const out = await draw("%%{init: {'theme':'dark'}}%%\npie\n  \"one\" : 1");
+    expect(out).toEqual({ svg: expect.stringContaining("drawn") });
+    expect(renderSvg).toHaveBeenLastCalledWith(
+      expect.any(String),
+      '\npie\n  "one" : 1',
+    );
+  });
+
   it("refuses a drawing the renderer made that loads from outside", async () => {
     renderSvg.mockResolvedValueOnce({
       svg: '<svg><image href="x.png"/></svg>',
