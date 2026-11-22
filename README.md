@@ -2,6 +2,8 @@
 
 Turns a few lines of text into calm, readable diagrams, laid out and drawn right in the browser.
 
+![A mind map: "Project kickoff" in the middle, five branches around it, the Budget branch in the accent colour](docs/img/mindmap.png)
+
 A diagram source goes in, either mermaid text or the diagram's structure as JSON, and a finished SVG drawing comes
 out. The layout follows a small set of hand-tuned rules: the main path runs straight down, branches leave it to the
 side, one accent marks only what the question is about, every connector is straight or bent at right angles (a
@@ -23,6 +25,10 @@ text. Each drawing comes with a full view and an SVG download.
 
 Any other mermaid kind, or a diagram too large to compose well, is handed to the mermaid renderer and drawn in the
 same card.
+
+![A swimlane: a purchase request moving through four lanes, with a budget decision and a dashed loop back to revise the request](docs/img/swimlane.png)
+
+![A sequence diagram: four participants, a loop and an optional frame, a self call, a note and a failed call](docs/img/sequence.png)
 
 ## Install
 

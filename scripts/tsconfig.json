@@ -1,0 +1,24 @@
+{
+  // The README's screenshot script: Node, playwright, the package's sources.
+  // Referenced from the root tsconfig, so `tsc -b` (npm run build) checks it.
+  "compilerOptions": {
+    "composite": true,
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "types": ["node", "vite/client"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "rootDir": "..",
+    "tsBuildInfoFile": "../node_modules/.tmp/tsconfig.scripts.tsbuildinfo",
+    "emitDeclarationOnly": true,
+    "outDir": "../node_modules/.tmp/scripts"
+  },
+  "include": ["*.ts", "../src"],
+  "exclude": ["../src/**/*.test.ts", "../src/**/*.test.tsx", "../src/test"]
+}
