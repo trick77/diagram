@@ -17,10 +17,6 @@ import { diagramKind } from "./kind";
  * and needs no gate.
  */
 
-/** The tags that load, or carry what does. */
-const tags =
-  "img|image|picture|source|video|audio|track|input|a|link|style|svg|use|script|iframe|frame|embed|object|base|meta|form";
-
 /** What the renderer is refused for in any kind, matched against the whole
  * source and against it decoded (decodings). Wide on purpose: a false
  * refusal shows code, a missed one fetches. */
@@ -37,20 +33,60 @@ const refused: [RegExp, string][] = [
   [/\$(link|sprite|tags)\b/i, "a C4 link, sprite or tag"],
   [/\bUpdate(Element|Rel|Boundary)Style|UpdateLayoutConfig/i, "a C4 style"],
   [/\\/, "a backslash escape"],
-  // A tag with an attribute (`<img src=`, `<svg/onload=`), the tags that
-  // act without one, but not after a word char: `List<Link>` is a type.
-  [new RegExp(`<(?:${tags})[\\s/]+[\\w:-]+\\s*=`, "i"), "markup that loads"],
+  // Any tag with any attribute: a name, whitespace or `/` (a line break
+  // too), then an `=` before any `<` or `>`. A per-tag list leaked (a
+  // valueless attribute first, a quoted `>`, a handler far in) and
+  // refused generics; a generic never has an `=` in its brackets
+  // (`Map<String, Object>`, `<<interface>>`). Linear: each `<` scans to
+  // the next `<`, `>` or `=`, where a backtracking rule took seconds on a
+  // 100k-char line. The name right after the `<`, as the browser reads a
+  // tag: `a < b and c = d` is prose.
+  [/<[a-z][\w:-]*[\s/][^<>=]*=/i, "markup with an attribute"],
+  // The tags that act bare, lower case: a capital one without an
+  // attribute is text with HTML labels locked off, and a type
+  // (`List<Template>`, `Page<Frame>`).
   [
-    /(?<!\w)<\s*(?:script|iframe|frame|object|embed|link|style)\b/i,
-    "markup that loads",
+    /<(?:script|iframe|frame|embed|style|base|meta|form|noscript|template|object|link)\b/,
+    "markup that acts",
   ],
-  [/<[a-z][\w:-]*[^>\n]*?[\s/]on\w+\s*=/i, "an event handler"],
   [/href/i, "an href"],
-  // As attributes only: "Posters and social media" is a label.
-  [/src\s*=|\b(srcset|poster|background)\s*=/i, "an attribute that loads"],
+  // As attributes only: "Posters and social media" is a label. Inside a
+  // name too (`imagesrcset=`).
+  [/src\s*=|srcset\s*=|\b(poster|background)\s*=/i, "an attribute that loads"],
   [/javascript:/i, "a javascript: URL"],
   [/\bdata:[a-z]+\//i, "a data: URL"],
 ];
+
+/** styleSemicolons is a text as mermaid's encodeEntities first leaves it:
+ * `/style.*:\S*#.*;/g`, then the same for classDef, each match losing its
+ * last char. Read in one pass per line, as those regexes are quadratic (a
+ * line of `style ` words). A line whose first `word` is followed by a
+ * `:`, a run without whitespace and a `#` before its last `;` loses that
+ * `;`: the match runs from the first `word` to the line's last `;`. A
+ * line ends where `.` stops: \n, \r, U+2028, U+2029. Exported for the
+ * test against mermaid's own regexes. */
+const lines = new RegExp(
+  `[^\\n\\r${String.fromCharCode(0x2028, 0x2029)}]+`,
+  "g",
+);
+export function styleSemicolons(text: string): string {
+  const drop = (t: string, word: string) =>
+    t.replace(lines, (line) => {
+      const at = line.indexOf(word);
+      const last = line.lastIndexOf(";");
+      if (at < 0 || last < 0) return line;
+      let colon = false;
+      for (let i = at + word.length; i < last; i++) {
+        const c = line[i];
+        if (/\s/.test(c)) colon = false;
+        else if (c === ":") colon = true;
+        else if (c === "#" && colon)
+          return line.slice(0, last) + line.slice(last + 1);
+      }
+      return line;
+    });
+  return drop(drop(text, "style"), "classDef");
+}
 
 /** mermaid's own character codes, as its encodeEntities reads them: a `;`
  * ending a style or classDef line with a `#` after its `:` is no code's
@@ -59,9 +95,7 @@ const refused: [RegExp, string][] = [
  * decodeEntities then turns its placeholders back, `ﬂ°°` into `&#`, `ﬂ°`
  * into `&`, `¶ß` into `;`, whoever wrote them. */
 function mermaidCodes(src: string): string {
-  return src
-    .replace(/style.*:\S*#.*;/g, (s) => s.slice(0, -1))
-    .replace(/classDef.*:\S*#.*;/g, (s) => s.slice(0, -1))
+  return styleSemicolons(src)
     .replace(/#(\w+);/g, (_, c: string) =>
       /^\d+$/.test(c) ? `&#${c};` : `&${c};`,
     )
@@ -94,17 +128,21 @@ function numeric(digits: string, radix: number): string {
  * textarea, whose content is never parsed as elements. */
 function htmlDecoded(text: string): string | null {
   let unread = false;
+  let area: HTMLTextAreaElement | undefined;
   const out = text.replace(
     /&(?:#(\d+)|#x([0-9a-f]+)|([a-z][a-z0-9]*));?/gi,
     (m, dec?: string, hex?: string, name?: string) => {
       if (dec !== undefined) return numeric(dec, 10);
       if (hex !== undefined) return numeric(hex, 16);
-      if (typeof document !== "undefined") {
-        const t = document.createElement("textarea");
-        t.innerHTML = m;
-        return t.value;
-      }
       const n = name ?? "";
+      // The names escapeAngles writes by the thousand, without a document.
+      if (m.endsWith(";") && Object.prototype.hasOwnProperty.call(named, n))
+        return named[n];
+      if (typeof document !== "undefined") {
+        area ??= document.createElement("textarea");
+        area.innerHTML = m;
+        return area.value;
+      }
       if (m.endsWith(";")) {
         // HTML also knows the four legacy names in capitals (`&LT;`).
         const key = /^(LT|GT|AMP|QUOT)$/.test(n) ? n.toLowerCase() : n;
@@ -273,7 +311,7 @@ function cssLoads(text: string): boolean {
  * - an element that loads by its nature (script, iframe, object ...);
  * - an src, href or xlink:href to anything but `#…` (an inline
  *   `data:image/` on an image is its own picture: C4's person icon);
- * - a srcset, poster or background attribute;
+ * - a srcset, poster or background attribute, an on… handler;
  * - any other attribute naming a scheme (`x:`) or `//`;
  * - a stylesheet or style attribute that loads (cssLoads). */
 export function unsafeSvg(svg: string): string | null {
@@ -289,6 +327,7 @@ export function unsafeSvg(svg: string): string | null {
       const v = a.value.trim();
       if (name.startsWith("xmlns")) continue;
       if (/^(srcset|poster|background)$/.test(name)) return `a ${name}`;
+      if (name.startsWith("on")) return `an ${name} handler`;
       if (name === "style") {
         if (cssLoads(v)) return `a <${tag}> style loads`;
         continue;
