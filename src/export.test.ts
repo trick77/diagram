@@ -10,11 +10,35 @@ import {
   phoneCanvas,
 } from "./export";
 
+/** The shape ../draw.ts svg() writes: defs, then a round-cornered canvas. */
+const own =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 90" width="240" height="90"><defs></defs><rect width="240" height="90" rx="8" fill="#151514"/><rect width="10" height="10"/></svg>';
+
+/** grounds are the drawing's top-level square rects over the whole
+ * viewBox: the grounds laid under it. */
+function grounds(svg: string): Element[] {
+  const root = new DOMParser().parseFromString(
+    svg,
+    "image/svg+xml",
+  ).documentElement;
+  const [x, y, w, h] = root.getAttribute("viewBox")!.split(" ");
+  return [...root.children].filter(
+    (r) =>
+      r.tagName === "rect" &&
+      r.getAttribute("rx") === null &&
+      (r.getAttribute("x") ?? "0") === x &&
+      (r.getAttribute("y") ?? "0") === y &&
+      r.getAttribute("width") === w &&
+      r.getAttribute("height") === h,
+  );
+}
+
 describe("toSvgFile", () => {
   afterEach(() => {
     document.head
       .querySelectorAll("style[data-test]")
       .forEach((s) => s.remove());
+    document.body.replaceChildren();
   });
 
   const svg =
@@ -41,6 +65,49 @@ describe("toSvgFile", () => {
     expect(out.indexOf('fill="rgb(27, 27, 26)"')).toBeLessThan(
       out.indexOf('width="10"'),
     );
+  });
+
+  it("grounds an own drawing on its canvas, whatever the page's ground", () => {
+    const bare = document.createElement("div");
+    document.body.appendChild(bare);
+    // The page's ground would show in the canvas's corners: the canvas wins.
+    for (const host of [null, bare, card()]) {
+      const out = toSvgFile({ svg: own }, host);
+      const g = grounds(out);
+      expect(g.map((r) => r.getAttribute("fill"))).toEqual(["#151514"]);
+      // Under the canvas: no see-through corners in a viewer.
+      expect(out.indexOf('fill="#151514"/><defs>')).toBeGreaterThan(0);
+      expect(out).toContain('rx="8" fill="#151514"');
+    }
+  });
+
+  it("takes the canvas off the root, not a rect inside the defs", () => {
+    const patterned = own.replace(
+      "<defs></defs>",
+      '<defs><pattern id="p"><rect width="240" height="90" fill="#ff0000"/></pattern></defs>',
+    );
+    expect(
+      grounds(toSvgFile({ svg: patterned }, null)).map((r) =>
+        r.getAttribute("fill"),
+      ),
+    ).toEqual(["#151514"]);
+    // Only the defs' rect covers the viewBox: no canvas, no ground.
+    const noCanvas = patterned.replace(
+      '<rect width="240" height="90" rx="8" fill="#151514"/>',
+      "",
+    );
+    expect(toSvgFile({ svg: noCanvas }, null)).toBe(noCanvas);
+  });
+
+  it("finds no canvas in a mermaid drawing, whose first rect is a node", () => {
+    const mermaid =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 90"><rect width="40" height="20" rx="5" fill="#abcdef"/></svg>';
+    expect(toSvgFile({ svg: mermaid }, null)).toBe(mermaid);
+    expect(
+      grounds(toSvgFile({ svg: mermaid }, card())).map((r) =>
+        r.getAttribute("fill"),
+      ),
+    ).toEqual(["rgb(27, 27, 26)"]);
   });
 
   it("leaves the renderer's file alone otherwise", () => {
@@ -187,6 +254,7 @@ describe("toXml", () => {
 describe("toPng", () => {
   let blob: Blob | null;
   let fail: boolean;
+  let loaded = "";
   const ctx = { fillStyle: "", fillRect: vi.fn(), drawImage: vi.fn() };
 
   beforeEach(() => {
@@ -207,7 +275,8 @@ describe("toPng", () => {
       class {
         onload: (() => void) | null = null;
         onerror: (() => void) | null = null;
-        set src(_v: string) {
+        set src(v: string) {
+          loaded = decodeURIComponent(v.slice(v.indexOf(",") + 1));
           setTimeout(() => (fail ? this.onerror?.() : this.onload?.()), 0);
         }
       },
@@ -229,6 +298,17 @@ describe("toPng", () => {
       200,
       100,
     );
+  });
+
+  it("grounds an own drawing on its canvas, not on white", async () => {
+    // White in the round canvas's corners read as a frame on a dark drawing.
+    await toPng(own);
+    expect(grounds(loaded).map((r) => r.getAttribute("fill"))).toEqual([
+      "#151514",
+    ]);
+    // A file toSvgFile already grounded gets no second ground.
+    await toPng(toSvgFile({ svg: own }, null));
+    expect(grounds(loaded)).toHaveLength(1);
   });
 
   it("fails when the picture has no size, will not load, or will not encode", async () => {
