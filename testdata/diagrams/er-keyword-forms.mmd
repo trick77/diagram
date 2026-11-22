@@ -1,0 +1,11 @@
+erDiagram
+    STYLE["Recipe style"] {
+        int style_id PK
+        string name
+    }
+    CLASS { int class_id PK }
+    DISH ||--o{ CLASS : "belongs to"
+    STYLE||--o{DISH : "shapes"
+    COOK ||--o{ DISH : "makes"
+    style COOK stroke-width:1px
+    class CLASS,DISH focus

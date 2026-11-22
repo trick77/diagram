@@ -3,7 +3,7 @@
 export { toIR, plain } from "./ir";
 export { editorial, type Parser } from "./editorial";
 export { diagramKind, frontMatter } from "./kind";
-export { dropStrayMarks, escapeAngles } from "./text";
+export { dropStrayMarks, escapeAngles, repair } from "./text";
 export {
   configure,
   diagramTitle,

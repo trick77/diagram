@@ -32,7 +32,9 @@ Diagram layout and SVG drawing for the browser, one copy for rongo, almanach and
 ## Diagram failing to draw → corpus FIRST
 
 - New `testdata/diagrams/*.mmd` in the failing shape, then the fix; past the caps on purpose → `declined`, a tree
-  → `orgCharts`, lanes → `swimlanes` (`corpus.test.ts`). Consumers run theirs on `./check` `checkIR`.
+  → `orgCharts`, lanes → `swimlanes`, still refused → `refused`, breaks the rules → `broken` (`corpus.test.ts`).
+  Consumers run theirs on `./check` `checkIR`. Misshapen source → `repair` (text.ts); an own drawing `checkIR`
+  refuses goes to mermaid, never out broken.
 - Public repo: invented labels only, never a name or text from a real answer.
 
 ## Traps (each cost a broken picture)

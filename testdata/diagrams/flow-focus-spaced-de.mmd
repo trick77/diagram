@@ -1,0 +1,16 @@
+flowchart TD
+    K["Meldung trifft ein"] --> D1{"Fahrrad verkratzt?"} :::focus
+    D1 -->|"ja"| A1["Bilder einholen"]
+    A1 --> A2["Werkstatt sucht Grund"]
+    A2 --> A3{"Kratzer übernommen?"}
+    A3 -->|"ja"| OUT["Lackieren oder tauschen"]
+    A3 -->|"nein"| A4["Absage mit Grund"]
+    D1 -->|"nein"| B1{"Anliegen ordnen"}
+    B1 -->|"Umtausch, z. B. falsche Größe"| B2["14-Tage-Frist prüfen"]
+    B2 --> B3["Rücknahme prüfen"]
+    B3 --> OUT
+    B1 -->|"Mangel, z. B. Bremse schleift"| B4["Gewährleistung prüfen: noch offen?"]
+    B4 --> B5{"Mangel bestätigt?"}
+    B5 -->|"ja"| OUT
+    B5 -->|"nein"| A4
+    A4 --> ENDE(["Vorgang erledigt / Ombudsstelle"])

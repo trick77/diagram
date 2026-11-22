@@ -911,7 +911,11 @@ type Side = "NORTH" | "SOUTH" | "EAST" | "WEST";
  * engine put the second branch's target left of the first's. Left free in
  * the drawing itself, a loop back entered a diamond from below and the
  * branches left partway down its slopes. */
-export async function layoutElk(ir: FlowIR, elk: Elk): Promise<FlowLayout> {
+export async function layoutElk(
+  ir: FlowIR,
+  elk: Elk,
+  free = false,
+): Promise<FlowLayout> {
   const tb = ir.direction === "TB";
   const w = boxWidth(
     ir.nodes.filter((n) => n.shape !== "decision"),
@@ -999,7 +1003,12 @@ export async function layoutElk(ir: FlowIR, elk: Elk): Promise<FlowLayout> {
     // way, as the edge written against the order. Every corpus flowchart
     // ELK draws came out byte for byte the same with it.
     "elk.layered.cycleBreaking.strategy": "GREEDY_MODEL_ORDER",
-    "elk.layered.crossingMinimization.forceNodeModelOrder": "true",
+    // A rank in the order written, unless asked free: written order crossed
+    // two branches merging into one end node, and free of it the engine
+    // drew them apart (flowfit.ts).
+    "elk.layered.crossingMinimization.forceNodeModelOrder": free
+      ? "false"
+      : "true",
     "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
     "elk.layered.nodePlacement.bk.fixedAlignment": "BALANCED",
   };

@@ -2,6 +2,7 @@ import { toIR } from "./ir";
 import { fits, type Limits } from "../fits";
 import { drawIR, type Room } from "../render";
 import type { DiagramIR } from "../ir";
+import { checkIR } from "../check/ir";
 import { serial } from "./serial";
 
 /**
@@ -29,7 +30,14 @@ export async function editorial(
 ): Promise<string | null> {
   const ir = await read(mermaid, src);
   if (ir === null || !fits(ir, limits)) return null;
-  return (await drawIR(ir, ids, { width: room.width })).svg;
+  const { svg, laid } = await drawIR(ir, ids, { width: room.width });
+  // A drawing that breaks the package's own rules (edges crossing, a line
+  // behind a box) is not handed out: the renderer draws the source, as for
+  // one past the caps. Dense state graphs did, 2 to 5 crossings each, with
+  // every layout the engine offered. Checked as drawn: a timeline the way
+  // its room laid it, nothing laid out a second time.
+  const broken = await checkIR(ir, { layout: laid });
+  return broken.length === 0 ? svg : null;
 }
 
 /** read parses a source and reads its db, one source at a time, in the

@@ -3,7 +3,7 @@ import mermaid from "mermaid";
 import ELK from "elkjs/lib/elk.bundled.js";
 import { diagramKind } from "./kind";
 import { ownKinds } from "./draw";
-import { dropStrayMarks, escapeAngles } from "./text";
+import { escapeAngles, repair } from "./text";
 import { toIR } from "./ir";
 import { editorial } from "./editorial";
 import { fits } from "../fits";
@@ -33,9 +33,24 @@ const sources: Record<string, string> = import.meta.glob(
 const corpus = Object.entries(sources).map(([path, text]) => ({
   name: path.slice(path.lastIndexOf("/") + 1),
   stored: text.trimEnd(),
-  // With the stray class marks draw() drops already dropped.
-  src: dropStrayMarks(text.trimEnd()),
+  // As draw() reads it: the shapes it repairs repaired.
+  src: repair(text.trimEnd()),
 }));
+
+/** Sources the renderer refuses even repaired: a mark on an edge label,
+ * `H -->|"Yes":::focus --> I`, says nothing a repair could know. Asserted
+ * refused, so a repair that learns it flips the test. */
+const refused = new Set(["flow-focus-on-edge-en.mmd"]);
+
+/** Sources within the caps the package lays out against its own rules
+ * (edges crossing, a line behind a box) with every layout it has: the
+ * renderer draws them instead (editorial.ts). Asserted broken, so a layout
+ * that learns them flips the test. */
+const broken = new Set([
+  "state-dense-de.mmd",
+  "state-dense-en.mmd",
+  "flow-focus-spaced-de.mmd",
+]);
 
 /** Sources of a kind the package draws that are past its limits on
  * purpose: the renderer draws them, and the corpus says so per file. */
@@ -144,9 +159,16 @@ describe("the diagram corpus", () => {
   });
 
   for (const { name, stored, src } of corpus) {
+    if (refused.has(name)) {
+      it(`is refused, repaired or not: ${name}`, async () => {
+        expect(await mermaid.parse(src, { suppressErrors: true })).toBe(false);
+      });
+      continue;
+    }
+
     it(`parses ${name}`, async () => {
-      // The source as stored parses, or a stray class mark is all that
-      // stands in its way: the one repair draw() makes.
+      // The source as stored parses, or what stands in its way is a shape
+      // draw() repairs (repair: a stray or misplaced mark, a keyword).
       if (!(await mermaid.parse(stored, { suppressErrors: true })))
         expect(src, `the renderer refuses:\n${stored}`).not.toBe(stored);
       expect(
@@ -168,7 +190,11 @@ describe("the diagram corpus", () => {
     // looking like it always did.
     it(`draws ${name} with the drawing its kind gets`, async () => {
       const svg = await editorial(mermaid, escapeAngles(src), "corpus");
-      if (ownKinds.has(diagramKind(src)) && !declined.has(name)) {
+      if (
+        ownKinds.has(diagramKind(src)) &&
+        !declined.has(name) &&
+        !broken.has(name)
+      ) {
         expect(svg, "the package declined a kind it draws").toMatch(/^<svg /);
       } else {
         expect(svg, "the package drew what the renderer should").toBeNull();
@@ -199,7 +225,12 @@ describe("the diagram corpus", () => {
       // want of a route.
       if (ir.kind === "swimlane")
         expect(layoutSwimlane(ir), "the lanes declined it").not.toBeNull();
-      expect(await checkIR(ir)).toEqual([]);
+      if (broken.has(name))
+        expect(
+          await checkIR(ir),
+          "a known break now lays out clean",
+        ).not.toEqual([]);
+      else expect(await checkIR(ir)).toEqual([]);
     });
 
     it(`frames every node ${name} marks :::focus, and no other`, async () => {

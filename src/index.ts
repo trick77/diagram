@@ -99,7 +99,14 @@ export {
   type Face,
   type Palette,
 } from "./theme";
-export { drawIR, engine, type DrawIROptions, type Rendered } from "./render";
+export {
+  drawIR,
+  engine,
+  type AnyLayout,
+  type DrawIROptions,
+  type Rendered,
+} from "./render";
+export { layoutFlowChecked } from "./flowfit";
 export {
   download,
   fileName,

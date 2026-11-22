@@ -1,0 +1,15 @@
+flowchart TD
+    A["Send in a photo"] --> B["Check size and format"]
+    B --> C{"All checks pass?"}
+    C -->|"No"| D["Sender fixes and resends"]
+    D --> B
+    C -->|"Yes"| E["Jury views it"]
+    E --> F{"Decision?"}
+    F -->|"Ask for a crop"| G["Sender crops it"]
+    G --> B
+    F -->|"Accept"| H{"Two votes?"}
+    H -->|"No"| E
+    H -->|"Yes":::focus --> I["Hang in the gallery"]
+    I --> J["List in the catalogue"]
+
+    classDef focus fill:#ffe08a,stroke:#b8860b,stroke-width:2px

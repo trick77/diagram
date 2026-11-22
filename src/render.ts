@@ -1,10 +1,6 @@
 import type { DiagramIR } from "./ir";
-import {
-  layoutFlow,
-  type Elk,
-  type FlowLayout,
-  type FlowOptions,
-} from "./layout";
+import type { Elk, FlowLayout, FlowOptions } from "./layout";
+import { layoutFlowChecked } from "./flowfit";
 import {
   drawClass,
   drawER,
@@ -15,14 +11,14 @@ import {
   drawSwimlane,
   drawTimeline,
 } from "./draw";
-import { layoutClass } from "./class";
-import { layoutER } from "./er";
-import { layoutMindmap } from "./mindmap";
-import { layoutSequence } from "./sequence";
-import { asFlow, layoutSwimlane } from "./swimlane";
+import { layoutClass, type ClassLayout } from "./class";
+import { layoutER, type ERLayout } from "./er";
+import { layoutMindmap, type MindmapLayout } from "./mindmap";
+import { layoutSequence, type SequenceLayout } from "./sequence";
+import { asFlow, layoutSwimlane, type SwimlaneLayout } from "./swimlane";
 import { palette, type Palette } from "./theme";
-import { layoutTimeline } from "./timeline";
-import { layoutQuadrant } from "./quadrant";
+import { layoutTimeline, type TimelineLayout } from "./timeline";
+import { layoutQuadrant, type QuadrantLayout } from "./quadrant";
 
 /**
  * A diagram's IR laid out and written as SVG: the glue every consumer had a
@@ -47,10 +43,26 @@ export function engine(): Promise<Elk> {
   return elk;
 }
 
+/** Any kind's layout. */
+export type AnyLayout =
+  | FlowLayout
+  | SequenceLayout
+  | ERLayout
+  | MindmapLayout
+  | TimelineLayout
+  | QuadrantLayout
+  | SwimlaneLayout
+  | ClassLayout;
+
 /** A drawing, and the flow layout it came from: a consumer lays links over
  * the nodes by their boxes (almanach's maps); a swimlane's is a flow layout
- * with its lanes. null for any other kind. */
-export type Rendered = { svg: string; layout: FlowLayout | null };
+ * with its lanes. null for any other kind. laid is the layout drawn, every
+ * kind's: checkIR holds it to the rules without laying it out again. */
+export type Rendered = {
+  svg: string;
+  layout: FlowLayout | null;
+  laid: AnyLayout;
+};
 
 /** Where a drawing is shown. width is the room it has, in px: a timeline
  * lies flat in it when it fits and stands up otherwise (../timeline.ts).
@@ -70,37 +82,41 @@ export async function drawIR(
   opts: DrawIROptions = {},
 ): Promise<Rendered> {
   const pal = opts.palette ?? palette();
-  if (ir.kind === "timeline")
-    return {
-      svg: drawTimeline(layoutTimeline(ir, opts.width), pal),
-      layout: null,
-    };
-  if (ir.kind === "quadrant")
-    return { svg: drawQuadrant(layoutQuadrant(ir), pal, ids), layout: null };
-  if (ir.kind === "sequence")
-    return { svg: drawSequence(layoutSequence(ir), pal, ids), layout: null };
-  if (ir.kind === "er")
-    return {
-      svg: drawER(await layoutER(ir, await engine()), pal),
-      layout: null,
-    };
-  if (ir.kind === "mindmap")
-    return { svg: drawMindmap(layoutMindmap(ir), pal), layout: null };
-  if (ir.kind === "class")
-    return {
-      svg: drawClass(await layoutClass(ir, await engine()), pal),
-      layout: null,
-    };
+  if (ir.kind === "timeline") {
+    const laid = layoutTimeline(ir, opts.width);
+    return { svg: drawTimeline(laid, pal), layout: null, laid };
+  }
+  if (ir.kind === "quadrant") {
+    const laid = layoutQuadrant(ir);
+    return { svg: drawQuadrant(laid, pal, ids), layout: null, laid };
+  }
+  if (ir.kind === "sequence") {
+    const laid = layoutSequence(ir);
+    return { svg: drawSequence(laid, pal, ids), layout: null, laid };
+  }
+  if (ir.kind === "er") {
+    const laid = await layoutER(ir, await engine());
+    return { svg: drawER(laid, pal), layout: null, laid };
+  }
+  if (ir.kind === "mindmap") {
+    const laid = layoutMindmap(ir);
+    return { svg: drawMindmap(laid, pal), layout: null, laid };
+  }
+  if (ir.kind === "class") {
+    const laid = await layoutClass(ir, await engine());
+    return { svg: drawClass(laid, pal), layout: null, laid };
+  }
   if (ir.kind === "swimlane") {
     // Laid out by code. A shape its connectors cannot route cleanly is
     // drawn as the flow it was written as, its lanes as zones.
     const lanes = layoutSwimlane(ir);
-    if (lanes) return { svg: drawSwimlane(lanes, pal, ids), layout: lanes };
+    if (lanes)
+      return { svg: drawSwimlane(lanes, pal, ids), layout: lanes, laid: lanes };
   }
-  const layout = await layoutFlow(
+  const layout = await layoutFlowChecked(
     ir.kind === "swimlane" ? asFlow(ir) : ir,
     engine,
     { tree: opts.tree },
   );
-  return { svg: drawFlow(layout, pal, ids), layout };
+  return { svg: drawFlow(layout, pal, ids), layout, laid: layout };
 }

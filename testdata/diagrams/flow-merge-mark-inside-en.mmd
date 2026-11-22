@@ -1,0 +1,11 @@
+flowchart TD
+    a["Loan due date passes"] --> b{"Returned?" :::focus}
+    b -- "Yes" --> c["Close the loan"]
+    b -- "No" --> d["Add overdue fee"]
+    d --> e["Send a reminder"]
+    e --> f{"Fee settled?"}
+    f -- "Yes" --> g["Loan cleared"]
+    f -- "No" --> h["Block the card"]
+    h --> i["Refer to collections"]
+    g --> j["Archive the record"]
+    c --> j

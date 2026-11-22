@@ -1,5 +1,6 @@
 import type { DiagramIR } from "../ir";
-import { isMapping, layoutFlow, type FlowLayout } from "../layout";
+import { isMapping, type FlowLayout } from "../layout";
+import { layoutFlowChecked } from "../flowfit";
 import { layoutSequence, type SequenceLayout } from "../sequence";
 import { layoutER, type ERLayout } from "../er";
 import { layoutMindmap, type MindmapLayout } from "../mindmap";
@@ -7,7 +8,7 @@ import { layoutTimeline, type TimelineLayout } from "../timeline";
 import { layoutQuadrant, type QuadrantLayout } from "../quadrant";
 import { asFlow, layoutSwimlane, type SwimlaneLayout } from "../swimlane";
 import { layoutClass, type ClassLayout } from "../class";
-import { engine } from "../render";
+import { engine, type AnyLayout } from "../render";
 import {
   check,
   checkClass,
@@ -18,16 +19,7 @@ import {
 } from "./check";
 import { checkQuadrant, checkTimeline } from "./plot";
 
-/** Any kind's layout, for a caller that has one already. */
-export type AnyLayout =
-  | FlowLayout
-  | SequenceLayout
-  | ERLayout
-  | MindmapLayout
-  | TimelineLayout
-  | QuadrantLayout
-  | SwimlaneLayout
-  | ClassLayout;
+export type { AnyLayout };
 
 export type CheckIROptions = {
   /** The layout to check, the IR's kind's; laid out here when absent. */
@@ -84,14 +76,14 @@ export async function checkIR(
         return check(given as FlowLayout, { written: isMapping(flow) });
       const lanes = (given as SwimlaneLayout | undefined) ?? layoutSwimlane(ir);
       if (lanes) return checkSwimlane(lanes);
-      return check(await layoutFlow(flow, engine, { tree: opts.tree }), {
+      return check(await layoutFlowChecked(flow, engine, { tree: opts.tree }), {
         written: isMapping(flow),
       });
     }
     case "flow":
       return check(
         (given as FlowLayout | undefined) ??
-          (await layoutFlow(ir, engine, { tree: opts.tree })),
+          (await layoutFlowChecked(ir, engine, { tree: opts.tree })),
         { written: isMapping(ir) },
       );
   }

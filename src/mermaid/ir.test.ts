@@ -2,6 +2,7 @@ import { beforeAll, describe, it, expect } from "vitest";
 import mermaid from "mermaid";
 import { toIR } from "./ir";
 import { escapeAngles } from "./text";
+import { editorial } from "./editorial";
 import { fits } from "../fits";
 import type {
   ClassDiagramIR,
@@ -80,6 +81,21 @@ describe("toIR for a flowchart", () => {
   a["Gather"] --> b["Rerank"]:::focus
   classDef focus stroke-width:2px`);
     expect(f.nodes.map((n) => n.focus ?? false)).toEqual([false, true]);
+  });
+
+  // Models add a classDef or a style with a colour of their own; the
+  // drawing's colours are its palette's, the focus the one mark it reads.
+  it("takes no colour from a classDef or a style", async () => {
+    const src = `flowchart TD
+  a["Gather"] --> b["Rerank"]:::focus
+  b --> c["Answer"]
+  classDef focus fill:#ffe08a,stroke:#b8860b,stroke-width:2px
+  style c fill:#ff0000,stroke:#00ff00`;
+    const f = await flow(src);
+    expect(f.nodes.map((n) => n.focus ?? false)).toEqual([false, true, false]);
+    const svg = (await editorial(mermaid, src, "t"))!;
+    expect(svg).toMatch(/^<svg /);
+    expect(svg).not.toMatch(/ffe08a|b8860b|ff0000|00ff00/i);
   });
 
   it("shows entities and markdown as mermaid's own drawing did", async () => {

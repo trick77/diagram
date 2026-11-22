@@ -202,6 +202,117 @@ export function dropStrayMarks(src: string): string {
     .join("\n");
 }
 
+/**
+ * repair mends the shapes models write that the renderer refuses, into what
+ * they meant, before anything parses the source (draw does). Each is in the
+ * corpus; a source without them comes back byte for byte. On the way to
+ * drawing only, like escapeAngles.
+ *
+ * - A mark on a line of its own: dropped (dropStrayMarks).
+ * - A flowchart mark spaced off its shape, `D1{"x"} :::focus`: joined.
+ * - A flowchart mark written inside its shape, `b{"x" :::focus}`: moved out
+ *   after it. Inside, mermaid drew it as label text and the focus was lost.
+ * - An erDiagram entity named like one of its keywords (`CLASS`, `style`,
+ *   any case): quoted wherever it stands as an entity. Bare, the grammar
+ *   read the keyword and refused the whole model.
+ *
+ * Text inside double quotes is a label and never touched.
+ */
+export function repair(src: string): string {
+  const kind = diagramKind(src);
+  if (kind === "erDiagram") return erKeywords(src);
+  const out = dropStrayMarks(src);
+  if (!out.includes(":::")) return out;
+  if (kind !== "graph" && !kind.startsWith("flowchart")) return out;
+  return out
+    .split("\n")
+    .map((l) =>
+      outsideQuotes(l, (s) =>
+        s
+          // Inside: `{"x" :::focus}`, `([x :::focus])`, `[/x :::focus/]`. A
+          // mark followed by a shape's closer is never valid anywhere else.
+          .replace(/\s*(:::[A-Za-z][\w-]*)\s*([\])}]+|\/\]|\\\])/g, "$2$1")
+          // Spaced: `{"x"} :::focus`.
+          .replace(/([\])}])[ \t]+(:::[A-Za-z][\w-]*)/g, "$1$2"),
+      ),
+    )
+    .join("\n");
+}
+
+/** outsideQuotes rewrites a line's text outside its double-quoted spans. */
+function outsideQuotes(line: string, f: (s: string) => string): string {
+  return line
+    .split(/("[^"]*")/)
+    .map((part, i) => (i % 2 === 1 ? part : f(part)))
+    .join("");
+}
+
+/** The words erDiagram's grammar reads as its own, where an entity's name
+ * can stand. */
+const erWords = /^(class|classDef|style|direction|title|accTitle|accDescr)$/i;
+const isErWord = (s: string) => erWords.test(s);
+const erName = (s: string) => (isErWord(s) ? `"${s}"` : s);
+
+const erEntity = "[A-Za-z_][\\w-]*";
+/** A declaration: the name, an alias, and a block opened (and maybe closed)
+ * on the line, or nothing more. */
+const erDeclared = new RegExp(
+  `^(\\s*)(${erEntity})(\\s*(?:\\[[^\\]]*\\])?\\s*(?:\\{.*)?)$`,
+);
+/** A relationship, spaced or not: `A ||--o{ B : label`. */
+const erRelated = new RegExp(
+  `^(\\s*)(${erEntity})(\\s*[|}o][|o]?(?:--|\\.\\.)[|o][|{o]?\\s*)(${erEntity})(\\s*:.*)$`,
+);
+/** A class statement: `class A,B name`. */
+const erClassed = /^(\s*)class\s+(\S+)\s+([A-Za-z_][\w-]*)\s*;?\s*$/;
+
+/** erKeywords quotes an entity named like a keyword wherever it stands as
+ * one: either side of a relationship, a declaration with or without an
+ * alias or a block. A class statement refuses it quoted or not, so it
+ * leaves the statement and takes the class as a mark on its first
+ * relationship (or declaration). A style statement takes it bare. */
+function erKeywords(src: string): string {
+  if (!src.split(/[^\w-]+/).some(isErWord)) return src;
+  const marks = new Map<string, string>();
+  let inBlock = false;
+  const lines = src.split("\n").map((l) => {
+    if (inBlock) {
+      if (/^\s*}/.test(l)) inBlock = false;
+      return l;
+    }
+    const rel = erRelated.exec(l);
+    if (rel) return rel[1] + erName(rel[2]) + rel[3] + erName(rel[4]) + rel[5];
+    const cls = erClassed.exec(l);
+    if (cls) {
+      const ids = cls[2].split(",");
+      const kept = ids.filter((id) => !isErWord(id));
+      if (kept.length === ids.length) return l;
+      for (const id of ids) if (isErWord(id)) marks.set(id, cls[3]);
+      return kept.length === 0
+        ? null
+        : `${cls[1]}class ${kept.join(",")} ${cls[3]}`;
+    }
+    const decl = erDeclared.exec(l);
+    if (decl) {
+      if (decl[3].includes("{") && !decl[3].includes("}")) inBlock = true;
+      return decl[1] + erName(decl[2]) + decl[3];
+    }
+    return l;
+  });
+  const out = lines.filter((l): l is string => l !== null);
+  for (const [id, mark] of marks) {
+    const q = `"${id}"`;
+    // Its first relationship, else its declaration.
+    const related = out.findIndex((l) => l.includes(q) && /--|\.\./.test(l));
+    const i =
+      related >= 0
+        ? related
+        : out.findIndex((l) => l.trimStart().startsWith(q));
+    if (i >= 0) out[i] = out[i].replace(q, `${q}:::${mark}`);
+  }
+  return out.join("\n");
+}
+
 export function escapeAngles(src: string): string {
   if (!/[<>]/.test(src)) return src;
   // Front matter is YAML, not diagram text: kept as written, the rest
