@@ -17,10 +17,50 @@ import { diagramKind } from "./kind";
  * and needs no gate.
  */
 
+/** The chars that end a tag's name here: whitespace, `/`, `>`, and the
+ * quotes, `]`, `|`, `,` and parentheses a label or member puts after a
+ * comparison (`A["x<y"]`, `cmp(a<b, eps=0.1)`). */
+const nameEnd = /[\s/>"'\]|,()]/;
+
+/** tagWithAttribute says a text holds a tag with an attribute: `<` and a
+ * letter start it, its name runs to a nameEnd char (an inner `<` or `.`
+ * is part of it: `x<img< onerror=`, `x<a.b onclick=`) that must be
+ * whitespace or `/`, and an `=` after that before the `>` that closes it
+ * is an attribute's, an inner `<` no end. A generic never has an `=` in
+ * its brackets (`Map<String, Object>`, `<<interface>>`), and
+ * `a < b and c = d` is no tag. A regex stopping at an inner `<` let
+ * `x<img x< onerror=…>` pass, and a backtracking one took seconds on a
+ * long line: one right-to-left pass records the next `>`, `=` and name
+ * end for every position. */
+function tagWithAttribute(text: string): boolean {
+  const n = text.length;
+  const gt = new Int32Array(n + 1).fill(n);
+  const eq = new Int32Array(n + 1).fill(n);
+  const end = new Int32Array(n + 1).fill(n);
+  for (let i = n - 1; i >= 0; i--) {
+    const c = text[i];
+    gt[i] = c === ">" ? i : gt[i + 1];
+    eq[i] = c === "=" ? i : eq[i + 1];
+    end[i] = nameEnd.test(c) ? i : end[i + 1];
+  }
+  for (let i = 0; i + 1 < n; i++) {
+    if (text[i] !== "<" || !/[a-z]/i.test(text[i + 1])) continue;
+    const at = end[i + 1];
+    if (at < n && /[\s/]/.test(text[at]) && eq[at] < gt[at]) return true;
+  }
+  return false;
+}
+
+/** The tags that act bare, lower case only: a capital one (`<SCRIPT>`,
+ * `<Link>`, `<Form>`) is text with HTML labels locked off, the source
+ * rules being a second line behind that lock. */
+const acting =
+  "script|iframe|frame|embed|style|base|meta|form|noscript|template|object|link";
+
 /** What the renderer is refused for in any kind, matched against the whole
  * source and against it decoded (decodings). Wide on purpose: a false
  * refusal shows code, a missed one fetches. */
-const refused: [RegExp, string][] = [
+const refused: [RegExp | ((text: string) => boolean), string][] = [
   // A CSS url(), not an identifier ending in url (`ParseURL(`), nor an
   // empty one (`URL()`).
   [/(?<!\w)url\s*\(\s*(?!\))/i, "a url()"],
@@ -33,20 +73,13 @@ const refused: [RegExp, string][] = [
   [/\$(link|sprite|tags)\b/i, "a C4 link, sprite or tag"],
   [/\bUpdate(Element|Rel|Boundary)Style|UpdateLayoutConfig/i, "a C4 style"],
   [/\\/, "a backslash escape"],
-  // Any tag with any attribute: a name, whitespace or `/` (a line break
-  // too), then an `=` before any `<` or `>`. A per-tag list leaked (a
-  // valueless attribute first, a quoted `>`, a handler far in) and
-  // refused generics; a generic never has an `=` in its brackets
-  // (`Map<String, Object>`, `<<interface>>`). Linear: each `<` scans to
-  // the next `<`, `>` or `=`, where a backtracking rule took seconds on a
-  // 100k-char line. The name right after the `<`, as the browser reads a
-  // tag: `a < b and c = d` is prose.
-  [/<[a-z][\w:-]*[\s/][^<>=]*=/i, "markup with an attribute"],
-  // The tags that act bare, lower case: a capital one without an
-  // attribute is text with HTML labels locked off, and a type
-  // (`List<Template>`, `Page<Frame>`).
+  // Any tag with any attribute: a per-tag list leaked (a valueless
+  // attribute first, a quoted `>`, a handler far in) and refused generics.
+  [tagWithAttribute, "markup with an attribute"],
+  // An acting tag in lower case after anything (`List<script>`), but a
+  // UML stereotype, `<` before and `>>` after (`<<template>>`).
   [
-    /<(?:script|iframe|frame|embed|style|base|meta|form|noscript|template|object|link)\b/,
+    new RegExp(`(?<!<)<(?:${acting})\\b|<(?:${acting})\\b(?!>>)`),
     "markup that acts",
   ],
   [/href/i, "an href"],
@@ -267,12 +300,14 @@ function titleOnly(src: string): string {
  * reads: the first line `---`, a `title:` line among blank ones, `---`. */
 export function unsafeSource(written: string): string | null {
   const src = written.replace(/\r\n?/g, "\n");
-  for (const [re, why] of refused) if (re.test(src)) return why;
+  const hits = (rule: (typeof refused)[number][0], text: string) =>
+    typeof rule === "function" ? rule(text) : rule.test(text);
+  for (const [rule, why] of refused) if (hits(rule, src)) return why;
   const decoded = decodings(src);
   if (decoded === null) return "a character code it cannot read";
   for (const text of decoded)
-    for (const [re, why] of refused)
-      if (re.test(text)) return `${why}, by a character code`;
+    for (const [rule, why] of refused)
+      if (hits(rule, text)) return `${why}, by a character code`;
   const kind = diagramKind(src);
   if (withStatements(kind)) {
     // A flowchart's quoted text is a string token; a sequence message

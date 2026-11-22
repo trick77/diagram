@@ -83,7 +83,27 @@ const vectors: [string, string][] = [
   ],
   ["any tag, any attribute", `flowchart TD\n  A["<p data-x=1>"] --> B`],
   ["a one-letter tag after a space", `flowchart TD\n  A["a <b x=1> c"] --> B`],
+  // A tag read up to its `>`: an inner `<` does not end it.
+  ["img past an inner <", `flowchart TD\n  A["x<img x< onerror=go()>"] --> B`],
+  ["svg past an inner <", `flowchart TD\n  A["x<svg x< onload=go()>"] --> B`],
+  [
+    "object past an inner <",
+    `flowchart TD\n  A["x<OBJECT x< data=/api/logout>"] --> B`,
+  ],
+  [
+    "a name ending at an inner <",
+    `flowchart TD\n  A["x<img< onerror=go()>"] --> B`,
+  ],
+  // The browser's tag name runs to whitespace or `/`: `.` and `<` in it.
+  ["a dotted tag name", `flowchart TD\n  A["x<a.b onclick=go()>"] --> B`],
+  ["a < inside the name", `flowchart TD\n  A["x<img<x onerror=go()>"] --> B`],
   ["an acting tag after a word", `flowchart TD\n  A["List<iframe>"] --> B`],
+  [
+    "a tag break before a newline",
+    `flowchart TD\n  A["<img\nonerror=go()>"] --> B`,
+  ],
+  // A stereotype only when it is one: `<<` and `>>` around the name.
+  ["half a stereotype", `flowchart TD\n  A["<<script>"] --> B`],
   ["image with an attribute", `flowchart TD\n  A["<image width=1>"] --> B`],
   ["svg onload after a slash", `flowchart TD\n  A["<svg/onload=go()>"] --> B`],
   [
@@ -150,10 +170,39 @@ const vectors: [string, string][] = [
   ],
 ];
 
-// Refused before, drawn now: what the renderer's lock makes inert (a
-// directive's or front matter's config, stripped as mermaid would discard
-// it anyway) and markup without an attribute, drawn as text with HTML
-// labels off. The oracle below shows none of them fetches.
+// Markup-shaped text that is no tag with an attribute and no lower-case
+// acting tag: a name ending at a quote, `]`, `|`, `,` or a parenthesis, a
+// bare tag in capitals, a lower-case stereotype `<<name>>`. Drawn raw and
+// as drawn; with HTML labels locked off a bare tag is text.
+const textual: [string, string][] = [
+  ["a less-than in a label", `flowchart TD\n  A["x<y"] ==> B`],
+  [
+    "a comparison in a member",
+    "classDiagram\n  class Repo {\n    +cmp(a<b, eps=0.1)\n  }",
+  ],
+  ["a comparison in prose", `flowchart TD\n  A["x<b, y=1"] --> B`],
+  [
+    "types named like tags",
+    `flowchart TD\n  A["Page renders <Link> and <Form>"] --> B`,
+  ],
+  ["a returned type", "sequenceDiagram\n  A->>B: returns <Object>"],
+  ["a template stereotype", "classDiagram\n  class A {\n    <<template>>\n  }"],
+  ["an object stereotype", "classDiagram\n  class A {\n    <<object>>\n  }"],
+  ["a bare tag in capitals", `flowchart TD\n  A["<SCRIPT>"] --> B`],
+  ["a capital tag after a word", `flowchart TD\n  A["x<SCRIPT>"] --> B`],
+  ["a capital stereotype", "classDiagram\n  class A {\n    <<IFRAME>>\n  }"],
+  ["a capital tag after a space", `flowchart TD\n  A["a <Script>"] --> B`],
+  ["a frame type", `flowchart TD\n  A["x<FRAME>"] --> B`],
+  [
+    "link, form and object types",
+    `flowchart TD\n  A["<Link> <Form> <Object>"] --> B`,
+  ],
+];
+
+// Drawn: what the renderer's lock makes inert (a directive's or front
+// matter's config, stripped as mermaid would discard it anyway), codes
+// that decode to nothing refused, and markup that is text (textual). The
+// oracle below shows none of them fetches or leaves a live element.
 const harmless: [string, string][] = [
   [
     "directive",
@@ -181,10 +230,7 @@ const harmless: [string, string][] = [
     `---\rconfig:\r  themeCSS: ".n{fill:red}"\r---\rflowchart TD\r  A --> B`,
   ],
   ["svg use", `flowchart TD\n  A["<svg><use/></svg>"] --> B`],
-  // A bare tag in capitals has no attribute: with HTML labels locked off
-  // it is text, as the oracle shows. A type named like one is a type.
-  ["a bare tag in capitals", `flowchart TD\n  A["<SCRIPT>"] --> B`],
-  ["a frame type", `flowchart TD\n  A["x<FRAME>"] --> B`],
+  ...textual,
 ];
 
 /** As draw hands a source to the renderer. */
@@ -274,6 +320,9 @@ describe("unsafeSource", () => {
       `flowchart TD\n  ${"style ".repeat(20_000)}`,
       `flowchart TD\n  ${"classDef :".repeat(10_000)}`,
       `flowchart TD\n  style ${":".repeat(50_000)}`,
+      `flowchart TD\n  A[${"<a x<".repeat(25_000)}`,
+      `flowchart TD\n  A[${"<".repeat(100_000)}`,
+      `flowchart TD\n  A[${"<a ".repeat(30_000)}${"=".repeat(10)}`,
     ]) {
       unsafeSource(line);
       const t = performance.now();
@@ -529,7 +578,8 @@ describe("the renderer", () => {
     }
     // The style vectors at least fetch, as written.
     expect(seen).toBeGreaterThan(0);
-  });
+    // Every vector rendered: past vitest's 5s on a CI runner.
+  }, 60_000);
 
   // What the gate now lets through draws without a fetch, as draw hands it
   // over: config stripped, markup as text.
@@ -545,7 +595,31 @@ describe("the renderer", () => {
       expect(unsafeSvg(svg), name).toBeNull();
     }
     expect(drawn).toBe(harmless.length);
-  });
+  }, 60_000);
+
+  // Markup-shaped text, raw as well as escaped: drawn, no fetch, no live
+  // element of any tag a source rule names.
+  it("draws markup-shaped text as text, raw or escaped", async () => {
+    const live =
+      "script,iframe,frame,embed,base,meta,form,noscript,template,object,link,img,image,foreignObject";
+    for (const [i, [name, src]] of textual.entries())
+      for (const [j, text] of [src, asDrawn(src)].entries()) {
+        expect(unsafeSource(text), name).toBeNull();
+        let svg: string;
+        try {
+          ({ svg } = await mermaid.render(`t${i}-${j}`, text));
+        } catch (e) {
+          // The renderer fails on some raw members (`cmp(a<b, …)`), drawing
+          // nothing: as draw hands it over, escaped, it draws.
+          if (j === 0) continue;
+          throw e;
+        }
+        expect(fetches(svg), name).toBe(false);
+        expect(unsafeSvg(svg), name).toBeNull();
+        const doc = new DOMParser().parseFromString(svg, "text/html");
+        expect(doc.querySelector(live), name).toBeNull();
+      }
+  }, 60_000);
 
   // With HTML labels off a formatting tag is drawn as its text: forRenderer
   // takes it out, and keeps a line break where the kind draws one.
