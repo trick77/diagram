@@ -177,7 +177,7 @@ export async function layoutClass(
       "elk.padding": "[top=0,left=0,bottom=0,right=0]",
       // An entity model's spacing (er.ts), wider between lines: beside each
       // end stands a multiplicity, which the engine does not know about.
-      "elk.spacing.nodeNode": "48",
+      "elk.spacing.nodeNode": "56",
       "elk.layered.spacing.nodeNodeBetweenLayers": "64",
       "elk.spacing.edgeNode": "24",
       "elk.spacing.edgeEdge": "24",

@@ -27,6 +27,55 @@ const seq = (a: SequenceIR["actors"], rows: SeqRow[]): SequenceIR => ({
 const lifeline = (l: ReturnType<typeof layoutSequence>, id: string) =>
   l.lifelines.find((x) => x.id === id)!.x;
 
+describe("layoutSequence's room", () => {
+  it("leaves 32 round the drawing, 32 between participants, 26 between rows", () => {
+    const l = layoutSequence(
+      seq(actors("a", "b"), [msg("a", "b", "x"), msg("b", "a", "y")]),
+    );
+    const [a, b] = l.actors;
+    expect(a.x).toBe(32);
+    expect(a.y).toBe(32);
+    expect(b.x - (a.x + a.w)).toBeGreaterThanOrEqual(32);
+    const [m, n] = l.messages;
+    expect(n.label!.y - (m.points[0].y + 0)).toBeGreaterThanOrEqual(26);
+  });
+});
+
+describe("a frame's foot", () => {
+  it("closes clear of its title when it holds no row", () => {
+    const l = layoutSequence(
+      seq(actors("a", "b"), [
+        { type: "frame", keyword: "loop", label: "x" },
+        { type: "end" },
+      ]),
+    );
+    const f = l.frames[0];
+    expect(f.y + f.h - (f.title.y + f.title.h)).toBeGreaterThanOrEqual(9);
+  });
+
+  it("closes clear of a last divider and of its label", () => {
+    const bare = layoutSequence(
+      seq(actors("a", "b"), [
+        { type: "frame", keyword: "alt", label: "x" },
+        msg("a", "b", "m"),
+        { type: "divider", keyword: "else", label: "" },
+        { type: "end" },
+      ]),
+    ).frames[0];
+    expect(bare.y + bare.h - bare.dividers[0].y).toBeGreaterThanOrEqual(9);
+    const named = layoutSequence(
+      seq(actors("a", "b"), [
+        { type: "frame", keyword: "alt", label: "x" },
+        msg("a", "b", "m"),
+        { type: "divider", keyword: "else", label: "otherwise" },
+        { type: "end" },
+      ]),
+    ).frames[0];
+    const lb = named.dividers[0].label!;
+    expect(named.y + named.h - (lb.y + lb.h)).toBeGreaterThanOrEqual(9);
+  });
+});
+
 describe("layoutSequence", () => {
   it("puts participants in a row at the top, in source order, one height", () => {
     const l = layoutSequence(
@@ -242,8 +291,8 @@ describe("layoutSequence", () => {
     expect(f.cond.length).toBeGreaterThan(1);
     expect(f.dividers[0].label!.lines.length).toBeGreaterThan(1);
     // Unwrapped, the condition alone ran about 520px; the keyword's tab
-    // adds its padding.
-    expect(l.width).toBeLessThan(380);
+    // adds its padding, the 32px margins theirs.
+    expect(l.width).toBeLessThan(400);
     expect(checkSequence(l)).toEqual([]);
   });
 

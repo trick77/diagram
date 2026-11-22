@@ -54,12 +54,12 @@ export type SwimlaneLayout = FlowLayout & {
 
 /** A lane's room above and below its steps; between two steps stacked in
  * one column. */
-const lanePad = 20;
+const lanePad = 24;
 const cellGap = 20;
 /** The least gap between two columns, and the margin before the first and
  * after the last. */
-const gapMin = 40;
-const gapEdge = 24;
+const gapMin = 48;
+const gapEdge = 32;
 /** An upright stretch's first track in a gap, and the distance between
  * two tracks. */
 const trackIn = 16;
@@ -234,7 +234,7 @@ function lay(ir: SwimlaneIR, loopsOver: boolean): SwimlaneLayout | null {
   const w = boxWidth(
     ir.nodes.filter((n) => n.shape !== "decision"),
     112,
-    160,
+    168,
   );
   const boxes = new Map<string, NodeBox>();
   for (const n of ir.nodes)

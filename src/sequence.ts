@@ -84,14 +84,14 @@ export type SequenceLayout = {
 };
 
 /** Space around the drawing, inside the canvas. */
-const margin = 24;
+const margin = 32;
 /** Text to frame, each side, in a participant box. */
 export const boxPad = 16;
 const boxMin = 96;
 /** The widest a participant's name runs before it wraps. */
 const nameMax = 160;
 /** Clear space between two participant boxes. */
-const colGap = 24;
+const colGap = 32;
 /** A message's text: one line, and the widest before it wraps. */
 const textLine = 16;
 const textMax = 180;
@@ -100,7 +100,7 @@ const textPad = 16;
 /** Between a message's text and its line. */
 const textGap = 8;
 /** Between one row and the next. */
-const rowGap = 18;
+const rowGap = 26;
 /** A loop to itself: out this far, down at least this far. */
 const selfW = 24;
 const selfH = 18;
@@ -411,7 +411,10 @@ export function layoutSequence(ir: SequenceIR): SequenceLayout {
     } else if (r.type === "end" && stack.length > 0) {
       const open = stack.pop()!;
       const f = open.f;
-      f.h = y - rowGap / 2 + 6 - f.y;
+      // Below its last row, and never closer than 3 under its floor (the
+      // title, a divider, a divider's label): after those y moves by a
+      // fixed step, which a wider rowGap would otherwise eat into.
+      f.h = Math.max(y - rowGap / 2 + 6, open.floor + 3) - f.y;
       // A frame holding no row spans what the frame around it has spanned
       // so far, else every lifeline: spanning every lifeline inside a
       // frame would stretch that frame across all of them too.

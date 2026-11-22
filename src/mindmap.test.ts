@@ -174,7 +174,8 @@ describe("layoutMindmap", () => {
     const l = layoutMindmap(map(node("Plan")));
     expect(l.nodes).toHaveLength(1);
     expect(l.links).toEqual([]);
-    expect(at(l, "root").x).toBe(24);
+    // The drawing's margin (layout.ts).
+    expect(at(l, "root").x).toBe(32);
   });
 
   it("passes its own check, eight branches of two leaves", () => {

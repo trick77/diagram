@@ -42,6 +42,14 @@ const texts = (l: TimelineLayout, kind: string) =>
 const mid = (t: { x: number; w: number }) => t.x + t.w / 2;
 
 describe("layoutTimeline", () => {
+  it("leaves the drawing's 32 round its text, lying flat or standing", () => {
+    for (const l of [layoutTimeline(five, 1200), layoutTimeline(five, 300)])
+      for (const t of l.texts) {
+        expect(t.x).toBeGreaterThanOrEqual(32);
+        expect(t.y).toBeGreaterThanOrEqual(32);
+      }
+  });
+
   it("lies flat where the width holds a column per period", () => {
     const l = layoutTimeline(five, 1200);
     expect(l.orient).toBe("horizontal");
