@@ -38,7 +38,7 @@ import { titlePad, type SwimlaneLayout } from "./swimlane";
 
 /**
  * A layout written as SVG, in the reference design's vocabulary: a canvas in
- * the surface colour under a hairline, boxes framed in the line colour with
+ * the surface colour with no line round it, boxes framed in the line colour with
  * a 6px corner, flat diamonds, an outcome in the tint, a zone as a tinted
  * frame titled in bold, arrows in the muted colour with a filled head that
  * stops just short of the box, and labels in the small mono beside their
@@ -148,15 +148,13 @@ function svg(
   body: string[],
   extra: Attrs = {},
 ): string {
+  // No line round the drawing: a frame round the whole competed with the
+  // boxes inside it, a swimlane's own frame drew a second one.
   const canvas = el("rect", {
-    x: 0.5,
-    y: 0.5,
-    width: width - 1,
-    height: height - 1,
+    width,
+    height,
     rx: 8,
     fill: pal.surface,
-    stroke: pal.line,
-    "stroke-width": 1,
   });
   return el(
     "svg",
