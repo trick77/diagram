@@ -4,7 +4,7 @@ export { toIR, plain } from "./ir";
 export { editorial, type Parser } from "./editorial";
 export { diagramKind, frontMatter } from "./kind";
 export { dropStrayMarks, escapeAngles, repair } from "./text";
-export { unsafeSource, unsafeSvg } from "./guard";
+export { forRenderer, unsafeSource, unsafeSvg } from "./guard";
 export {
   configure,
   diagramTitle,

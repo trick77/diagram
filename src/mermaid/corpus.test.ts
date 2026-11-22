@@ -60,6 +60,7 @@ const declined = new Set([
   "mindmap-too-big.mmd",
   "quadrant-many-fallback.mmd",
   "class-too-big.mmd",
+  "class-code-past-caps.mmd",
   "swimlane-too-big.mmd",
   "swimlane-down-system-map.mmd",
 ]);

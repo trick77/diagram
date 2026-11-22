@@ -1,6 +1,6 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import mermaid from "mermaid";
-import { unsafeSource, unsafeSvg } from "./guard";
+import { forRenderer, unsafeSource, unsafeSvg } from "./guard";
 import { escapeAngles, repair } from "./text";
 import { editorial } from "./editorial";
 import { mermaidConfig } from "./draw";
@@ -15,19 +15,6 @@ const evil = "https://evil.example";
 const vectors: [string, string][] = [
   ["node image", `flowchart TD\n  A@{ img: "${evil}/a.png" } --> B`],
   ["node data", `flowchart TD\n  A@{ shape: diamond } --> B`],
-  [
-    "directive",
-    `%%{init: {"themeCSS": ".n{fill:url(${evil}/t)}"}}%%\nflowchart TD\n  A --> B`,
-  ],
-  ["directive, any case", `%%{ INITIALIZE: {} }%%\nflowchart TD\n  A --> B`],
-  [
-    "front matter config",
-    `---\nconfig:\n  themeCSS: ".n{background:url(${evil}/f)}"\n---\nflowchart TD\n  A --> B`,
-  ],
-  [
-    "front matter closed early for us, not for mermaid",
-    `---\ntitle: x\n  ---\nconfig:\n  look: neo\n---\nflowchart TD\n  A --> B`,
-  ],
   ["style url", `flowchart TD\n  A --> B\n  style A fill:url(${evil}/s)`],
   ["statements after ;", `flowchart TD; A --> B; style A fill:url(x.png)`],
   ["any case", `flowchart TD\n  A --> B\n  CLASSDEF x fill:URL(x.png)`],
@@ -53,35 +40,183 @@ const vectors: [string, string][] = [
   ["C4 tags", `C4Context\n  Person(a, "A", $tags="x")`],
   ["html image", `flowchart TD\n  A["<img src=x>"] --> B`],
   ["html anchor", `flowchart TD\n  A["<a href=x>y</a>"] --> B`],
-  ["svg use", `flowchart TD\n  A["<svg><use/></svg>"] --> B`],
   ["javascript", `flowchart TD\n  A["javascript:go()"] --> B`],
   ["data url", `flowchart TD\n  A["data:image/svg+xml,x"] --> B`],
   ["protocol-relative", `flowchart TD\n  A["//evil.example/x"] --> B`],
   ["http", `pie\n  "${evil}" : 1`],
+  ["url()", `flowchart TD\n  A --> B\n  classDef x fill:url(x.png)`],
+  ["HTML named code for a backslash", `flowchart TD\n  A["&bsol;x"] --> B`],
+  ["mermaid code for a tag", `flowchart TD\n  A["#60;img src=x#62;"] --> B`],
+  ["HTML hex code for a URL", `flowchart TD\n  A["https&#x3a;//x"] --> B`],
+  ["a code spelling a code", `flowchart TD\n  A["&amp;#92;x"] --> B`],
+  ["poster attribute", `flowchart TD\n  A["x poster=y"] --> B`],
+  ["srcset attribute", `flowchart TD\n  A["x srcset = y"] --> B`],
+  ["html video", `flowchart TD\n  A["<video poster=x>"] --> B`],
+  ["html picture", `flowchart TD\n  A["<picture><source srcset=x>"] --> B`],
+  ["background attribute", `flowchart TD\n  A["<table background=x>"] --> B`],
+  ["cross-fade", `flowchart TD\n  A --> B\n  classDef x fill:cross-fade(a, b)`],
+  // Markup, raw or as escapeAngles writes it: judged decoded, as drawn.
+  ["raw script", `flowchart TD\n  A["<script>go()</script>"] --> B`],
+  ["raw script, any case", `flowchart TD\n  A["<SCRIPT>"] --> B`],
+  ["raw style", `flowchart TD\n  A["<style >x</style>"] --> B`],
+  ["image with an attribute", `flowchart TD\n  A["<image width=1>"] --> B`],
+  ["svg onload after a slash", `flowchart TD\n  A["<svg/onload=go()>"] --> B`],
+  [
+    "img onerror after a slash",
+    `flowchart TD\n  A["<img/onerror=go()>"] --> B`,
+  ],
+  ["object data after a slash", `flowchart TD\n  A["<OBJECT/data=x>"] --> B`],
+  [
+    "an event handler",
+    `flowchart TD\n  A["<div onmouseover=go()>x</div>"] --> B`,
+  ],
+  // A code that spells a refused construct once decoded.
+  ["url() by a code in a label", `flowchart TD\n  A["#117;rl(x.png)"] --> B`],
+  [
+    "url() by a code in a style",
+    `flowchart TD\n  A --> B\n  style A fill:#117;rl(x.png);`,
+  ],
+  [
+    "backslash by a code in a classDef",
+    `flowchart TD\n  A --> B\n  classDef x fill:#000092;75rl(x.png);`,
+  ],
+  [
+    "url() by a code in a linkStyle",
+    `flowchart TD\n  A --> B\n  linkStyle 0 stroke:#000117;rl(x.png)`,
+  ],
+  // `&x;` is no code mermaid consumes: the `;` ends a statement.
+  ["click after &x;", `flowchart TD\n  A --> B &x; click B "rel.html"`],
+  [
+    "codes nested past reading",
+    'flowchart TD\n  A["&amp;amp;amp;amp;amp;x"] --> B',
+  ],
+  // A sequence message ends at a `;`, quoted or not.
+  [
+    "sequence link in quotes",
+    `sequenceDiagram\n  participant A\n  A->>A: "x; link A: Docs @ rel.html"`,
+  ],
+  // mermaid's own placeholders for `&#`, `&` and `;`, written out.
+  [
+    "url() by mermaid's placeholders",
+    "flowchart TD\n  A --> B\n  classDef x fill:ﬂ°°117¶ßrl(x.png)",
+  ],
+  [
+    "backslash by mermaid's placeholders",
+    'flowchart TD\n  A["ﬂ°bsol¶ßx"] --> B',
+  ],
+];
+
+// Refused before, drawn now: what the renderer's lock makes inert (a
+// directive's or front matter's config, stripped as mermaid would discard
+// it anyway) and markup without an attribute, drawn as text with HTML
+// labels off. The oracle below shows none of them fetches.
+const harmless: [string, string][] = [
+  [
+    "directive",
+    `%%{init: {"themeCSS": ".n{fill:url(${evil}/t)}"}}%%\nflowchart TD\n  A --> B`,
+  ],
+  ["directive, any case", `%%{ INITIALIZE: {} }%%\nflowchart TD\n  A --> B`],
+  // A code is judged by what it decodes to: alone, these build nothing.
+  ["mermaid character code", `flowchart TD\n  A["#60;img#62;"] --> B`],
+  ["mermaid code for a colon", `flowchart TD\n  A["x#58;y"] --> B`],
+  ["mermaid named code", `flowchart TD\n  A["x#colon;y#sol;#lpar;"] --> B`],
+  ["HTML character code", `flowchart TD\n  A["&#58;x"] --> B`],
+  ["HTML hex character code", `flowchart TD\n  A["&#x3a;x"] --> B`],
+  ["colour-shaped code in a label", `flowchart TD\n  A["x#000058;y"] --> B`],
+  ["a dark theme", `%%{init: {'theme':'dark'}}%%\nflowchart TD\n  A --> B`],
+  [
+    "front matter config",
+    `---\nconfig:\n  themeCSS: ".n{background:url(${evil}/f)}"\n---\nflowchart TD\n  A --> B`,
+  ],
+  [
+    "front matter closed early for us, not for mermaid",
+    `---\ntitle: x\n  ---\nconfig:\n  look: neo\n---\nflowchart TD\n  A --> B`,
+  ],
   [
     "front matter on bare \\r",
     `---\rconfig:\r  themeCSS: ".n{fill:red}"\r---\rflowchart TD\r  A --> B`,
   ],
-  ["mermaid character code", `flowchart TD\n  A["#60;img#62;"] --> B`],
-  ["hex character code", `flowchart TD\n  A["x#x3a;y"] --> B`],
-  ["HTML character code", `flowchart TD\n  A["&#58;x"] --> B`],
-  ["html video", `flowchart TD\n  A["<video poster=x>"] --> B`],
-  ["html picture", `flowchart TD\n  A["<picture><source srcset=x>"] --> B`],
+  ["svg use", `flowchart TD\n  A["<svg><use/></svg>"] --> B`],
   ["html base", `flowchart TD\n  A["<base>"] --> B`],
-  ["background attribute", `flowchart TD\n  A["<table background=x>"] --> B`],
-  ["cross-fade", `flowchart TD\n  A --> B\n  classDef x fill:cross-fade(a, b)`],
 ];
+
+/** As draw hands a source to the renderer. */
+const asDrawn = (src: string) => forRenderer(escapeAngles(repair(src)));
 
 describe("unsafeSource", () => {
   for (const [name, src] of vectors)
     it(`refuses ${name}`, () => {
       expect(unsafeSource(src)).not.toBeNull();
-      // Escaped as draw escapes it, still refused.
-      expect(unsafeSource(escapeAngles(repair(src)))).not.toBeNull();
+      // As draw hands it over, still refused.
+      expect(unsafeSource(asDrawn(src))).not.toBeNull();
     });
+
+  for (const [name, src] of harmless)
+    it(`draws ${name}, its config stripped or its markup text`, () => {
+      expect(unsafeSource(asDrawn(src))).toBeNull();
+    });
+
+  // Without a document a named code cannot be read: refused. Numeric ones
+  // and the few mermaid's own escaping writes are read all the same.
+  it("decodes without a document, refusing a name it cannot read", () => {
+    vi.stubGlobal("document", undefined);
+    try {
+      expect(
+        unsafeSource('flowchart TD\n  A["x&colon;y"] --> B'),
+      ).not.toBeNull();
+      expect(
+        unsafeSource('flowchart TD\n  A["#117;rl(x)"] --> B'),
+      ).not.toBeNull();
+      expect(
+        unsafeSource('flowchart TD\n  A["List#lt;T#gt;"] --> B'),
+      ).toBeNull();
+      expect(
+        unsafeSource("flowchart TD\n  A --> B\n  classDef focus fill:#ffe9a8;"),
+      ).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  // Code in class and sequence diagrams: names a word char precedes, and
+  // generics, raw or escaped.
+  it("lets identifiers and generics through", () => {
+    for (const label of [
+      "ParseURL(x)",
+      "imageUrl(id)",
+      "URL()",
+      "resolveUrl (path)",
+      "Map<String, Object>",
+      "List<Link>",
+      "Optional<Source>",
+      "Pair<A, B>",
+      "Set<Image>",
+    ]) {
+      const src = `classDiagram\n  class Repo {\n    +${label}\n  }`;
+      expect(unsafeSource(src), label).toBeNull();
+      expect(unsafeSource(asDrawn(src)), label).toBeNull();
+    }
+  });
 
   it("lets plain sources through, arrows and stereotypes included", () => {
     for (const src of [
+      // The words, not the attributes.
+      'flowchart TD\n  A["Posters and social media"] --> B["A poster"]',
+      'flowchart TD\n  A["The srcset idea"] --> B["Background work"]',
+      // A colour before a `;` is a colour: mermaid itself reads it so.
+      "flowchart TD\n  A --> B\n  classDef focus fill:#ffe9a8;",
+      "flowchart TD\n  A --> B\n  style A fill:#123,stroke:#456;",
+      "flowchart TD\n  A --> B\n  classDef a fill:#111111;stroke:#222222;",
+      // All digits: a colour where mermaid strips the `;`, a colon where
+      // it reads a code, and a colon alone builds nothing refused.
+      "flowchart TD\n  A --> B\n  classDef a fill:#000058;",
+      "flowchart TD\n  A --> B\n  style A fill:#000058;stroke:#fff;",
+      "flowchart TD\n  A --> B\n  linkStyle 0 stroke:#000058;",
+      "flowchart TD\n  A --> B\n  linkStyle 0 stroke:#ffe9a8;",
+      // mermaid writes `#x3a;` as `&x3a;`, which names nothing.
+      'flowchart TD\n  A["x#x3a;y"] --> B',
+      // The codes escapeAngles writes, and a quote.
+      'flowchart TD\n  A["List#lt;T#gt; #quot;x#quot;"] --> B',
       "classDiagram\n  class Shape {\n    <<interface>>\n  }\n  Shape <|-- Circle\n  A <-- B",
       "sequenceDiagram\n  A->>B: hi\n  B-->>A: <b>back</b>",
       "---\ntitle: Orders\n---\nflowchart TD\n  A --> B",
@@ -95,6 +230,9 @@ describe("unsafeSource", () => {
       // click and link are words outside the kinds that have them.
       "journey\n  section Browse\n    Click checkout: 5: User",
       'pie\n  "Data: raw" : 3',
+      // Quoted text is a label, its `;` no statement's end.
+      'flowchart TD\n  A["R&amp;D; click here"] --> B',
+      'flowchart TD\n  A["List&lt;Link&gt;"] --> B',
     ])
       expect(unsafeSource(src), src).toBeNull();
   });
@@ -241,8 +379,102 @@ describe("the renderer", () => {
         expect(unsafeSvg(svg), name).not.toBeNull();
       }
     }
-    // The theme vectors at least fetch, as written.
+    // The style vectors at least fetch, as written.
     expect(seen).toBeGreaterThan(0);
+  });
+
+  // What the gate now lets through draws without a fetch, as draw hands it
+  // over: config stripped, markup as text.
+  it("fetches nothing for what it now draws", async () => {
+    let drawn = 0;
+    const all = [...harmless, ...vectors];
+    for (const [i, [name, src]] of all.entries()) {
+      const text = asDrawn(src);
+      if (unsafeSource(text) !== null) continue;
+      const { svg } = await mermaid.render(`h${i}`, text);
+      drawn++;
+      expect(fetches(svg), name).toBe(false);
+      expect(unsafeSvg(svg), name).toBeNull();
+    }
+    expect(drawn).toBe(harmless.length);
+  });
+
+  // With HTML labels off a formatting tag is drawn as its text: forRenderer
+  // takes it out, and keeps a line break where the kind draws one.
+  it("draws formatting as plain text and a break as a break", async () => {
+    for (const [i, src] of [
+      'flowchart TD\n  A["<b>bold</b> and <code>x</code><br>next"] --> B',
+      "sequenceDiagram\n  A->>B: <i>it</i><br/>next",
+      "stateDiagram-v2\n  A : <strong>s</strong><br>next\n  [*] --> A",
+      "classDiagram\n  A <|-- B : <em>e</em><br>next",
+    ].entries()) {
+      const { svg } = await mermaid.render(`f${i}`, asDrawn(src));
+      expect(svg, src).not.toMatch(/&lt;\/?(b|i|em|strong|code|br)/);
+      expect(svg, src).toMatch(/>next</);
+    }
+  });
+});
+
+describe("forRenderer", () => {
+  // Every line stays where it was, emptied: a parse error names the line
+  // the reader sees in the fence.
+  it("strips a directive, as the renderer reads it, line for line", () => {
+    expect(
+      forRenderer("%%{init: {'theme':'dark'}}%%\nflowchart TD\n  A --> B"),
+    ).toBe("\nflowchart TD\n  A --> B");
+    expect(
+      forRenderer(
+        "%%{init: {\n  'theme':'dark'\n}}%%\nflowchart TD\n  A --> B",
+      ),
+    ).toBe("\n\n\nflowchart TD\n  A --> B");
+    expect(forRenderer('flowchart TD\n  A --> B\n%%{init: {"x": 1\n2')).toBe(
+      "flowchart TD\n  A --> B\n\n",
+    );
+  });
+
+  it("keeps a front matter's title alone, line for line", () => {
+    expect(
+      forRenderer(
+        "---\ntitle: Orders\nconfig:\n  look: neo\n---\nflowchart TD\n  A --> B",
+      ),
+    ).toBe("---\ntitle: Orders\n\n\n---\nflowchart TD\n  A --> B");
+    expect(
+      forRenderer("---\nconfig:\n  look: neo\n---\nflowchart TD\n  A --> B"),
+    ).toBe("\n\n\n\nflowchart TD\n  A --> B");
+  });
+
+  it("leaves a parse error on the line it is in the fence", async () => {
+    const src =
+      "---\nconfig:\n  look: neo\n---\n%%{init: {\n 'theme':'dark' }}%%\nflowchart TD\n  A --> B\n  B -->";
+    const line = async (s: string) => {
+      try {
+        await mermaid.parse(s);
+      } catch (e) {
+        return /line (\d+)/.exec(String(e))?.[1];
+      }
+      return undefined;
+    };
+    const original = await line(src);
+    expect(original).toBeDefined();
+    expect(await line(forRenderer(src))).toBe(original);
+  });
+
+  it("takes out formatting tags, and a break the kind cannot draw", () => {
+    expect(
+      forRenderer('flowchart TD\n  A["<b>x</b> <span>y</span><br>z"]'),
+    ).toBe('flowchart TD\n  A["x y<br>z"]');
+    expect(forRenderer('pie\n  "a<br>b" : 1')).toBe('pie\n  "a b" : 1');
+    expect(forRenderer("timeline\n  2024 : a<br/>b")).toBe(
+      "timeline\n  2024 : a<br>b",
+    );
+    // A span with attributes stays: drawn as its text, never markup.
+    const styled = "flowchart TD\n  A[\"<span style='x'>y</span>\"]";
+    expect(forRenderer(styled)).toBe(styled);
+  });
+
+  it("leaves a source with none of these byte for byte", () => {
+    const src = "classDiagram\n  A <|-- B : List<Link>";
+    expect(forRenderer(src)).toBe(src);
   });
 });
 
@@ -272,14 +504,15 @@ describe("the corpus", () => {
       if (!(await mermaid.parse(text, { suppressErrors: true }))) continue;
       if ((await editorial(mermaid, text, "c")) !== null) continue;
       renderer++;
-      const why = unsafeSource(text);
+      const given = forRenderer(text);
+      const why = unsafeSource(given);
       if (why !== null) {
         refused.push(`${path}: ${why}`);
         continue;
       }
       let svg: string;
       try {
-        svg = (await mermaid.render(`c${renderer}`, text)).svg;
+        svg = (await mermaid.render(`c${renderer}`, given)).svg;
       } catch {
         continue;
       }
@@ -290,8 +523,15 @@ describe("the corpus", () => {
     expect(renderer).toBeGreaterThan(5);
     expect(refused).toEqual([]);
     // A C4 person (its icon inline), a journey step named Click, a pie
-    // slice named Data: drawn, not refused.
-    for (const name of ["c4-context", "journey-click", "pie-data-label"])
+    // slice named Data, code with url-named methods and generics, a dark
+    // theme directive with formatting: drawn, not refused.
+    for (const name of [
+      "c4-context",
+      "journey-click",
+      "pie-data-label",
+      "class-code-past-caps",
+      "pie-dark-directive",
+    ])
       expect(rendered).toContain(`../../testdata/diagrams/${name}.mmd`);
     // It lays out and renders the whole corpus: seconds on a CI runner.
   }, 60_000);

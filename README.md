@@ -81,8 +81,9 @@ Lanes that break more rules than the zoned flow draw as that flow. A consumer la
 (either direction), the layout drawIR draws; `layoutSwimlane` alone takes only a left-to-right swimlane.
 
 **`./mermaid`**: draw a mermaid source; the package's own drawing where it has one, mermaid's otherwise. Results
-are cached by source. The mermaid fallback refuses a source with a link, a URL or url(), an encoded character code,
-loading markup, or front-matter config; it shows as code. It runs strict with HTML labels off.
+are cached by source. The mermaid fallback refuses a source with a link, a URL or url() or loading markup, also when
+spelled in character codes; it shows as code. It runs strict with HTML labels off and its config locked, so a directive or
+front-matter config is dropped rather than refused.
 
 ```ts
 import { configure, draw, drawnNow } from "@trick77/diagram/mermaid";

@@ -1,0 +1,34 @@
+classDiagram
+  class Fetcher {
+    +ParseURL(raw) URL
+    +imageUrl(id) String
+    +resolveUrl(path) String
+  }
+  class Page {
+    -List<Link> links
+    -Map<String, Object> meta
+  }
+  class Link {
+    +String target
+  }
+  class Source {
+    +Optional<Source> parent()
+  }
+  class Image {
+    +Set<Image> variants
+  }
+  class Pair~A, B~ {
+    +A first
+    +B second
+  }
+  class Cache
+  class Store
+  class Index
+  Fetcher --> Page
+  Page --> Link
+  Page --> Image
+  Source --> Page
+  Cache --> Fetcher
+  Store --> Cache
+  Index --> Store
+  Pair --> Index

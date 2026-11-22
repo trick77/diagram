@@ -4,7 +4,7 @@ import { lie } from "../export";
 import { diagramKind, frontMatter } from "./kind";
 import { serial } from "./serial";
 import { escapeAngles, repair } from "./text";
-import { unsafeSource, unsafeSvg } from "./guard";
+import { forRenderer, unsafeSource, unsafeSvg } from "./guard";
 
 /**
  * One mermaid source drawn into an SVG string: the package's own drawing
@@ -172,8 +172,9 @@ function init(mermaid: Mermaid): void {
 }
 
 /** The keys a source may never set, whatever its kind's section: the
- * renderer drops each from a directive or front matter, at any depth. The
- * gate refuses both already; this holds if it ever does not. */
+ * renderer drops each from a directive or front matter, at any depth. This
+ * lock is why forRenderer may strip a directive or front matter config
+ * instead of refusing it (guard.ts): what they could set is inert. */
 const locked = [
   "secure",
   "securityLevel",
@@ -414,15 +415,17 @@ async function drawFrom(
   // Gated, before and after: a source that could make the browser fetch is
   // never rendered, a drawing that would is never shown (guard.ts). Thrown,
   // like any refusal: draw keeps drawings only, and the app shows the
-  // source as code.
-  const before = unsafeSource(text);
+  // source as code. Judged and drawn as forRenderer hands it over: config
+  // stripped, formatting tags out.
+  const given = forRenderer(text);
+  const before = unsafeSource(given);
   if (before !== null) throw new Error(`unsafe: ${before}`);
   // In the chain the package's read is in: the renderer's db is one for the
   // page (serial.ts).
   const id = `${options.ids}-${++seq}`;
   const { svg } = await serial(async () => {
-    await mermaid.parse(text);
-    return mermaid.render(id, text);
+    await mermaid.parse(given);
+    return mermaid.render(id, given);
   });
   const after = unsafeSvg(svg);
   if (after !== null) throw new Error(`unsafe: ${after}`);
