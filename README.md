@@ -70,7 +70,8 @@ if (fits(ir)) {
 chart; `{ palette }` passes colours instead of reading the page's tokens.
 
 **`./mermaid`**: draw a mermaid source; the package's own drawing where it has one, mermaid's otherwise. Results
-are cached by source.
+are cached by source. The mermaid fallback refuses a source with a link, a URL or url(), an encoded character code,
+loading markup, or front-matter config; it shows as code. It runs strict with HTML labels off.
 
 ```ts
 import { configure, draw, drawnNow } from "@trick77/diagram/mermaid";

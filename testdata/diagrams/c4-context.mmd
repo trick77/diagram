@@ -1,0 +1,7 @@
+C4Context
+  title Ordering a book
+  Person(reader, "Reader", "Orders books online")
+  System(shop, "Book shop", "Takes orders and payments")
+  System_Ext(post, "Courier", "Delivers parcels")
+  Rel(reader, shop, "Orders from")
+  Rel(shop, post, "Hands parcels to")

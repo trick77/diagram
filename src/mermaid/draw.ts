@@ -4,6 +4,7 @@ import { lie } from "../export";
 import { diagramKind, frontMatter } from "./kind";
 import { serial } from "./serial";
 import { escapeAngles, repair } from "./text";
+import { unsafeSource, unsafeSvg } from "./guard";
 
 /**
  * One mermaid source drawn into an SVG string: the package's own drawing
@@ -11,11 +12,14 @@ import { escapeAngles, repair } from "./text";
  * rest. The caller sets the string as innerHTML.
  *
  * That is model output reaching innerHTML, and the reason it is allowed is
- * two guards. The own drawing writes every label through draw.ts's XML
- * escape. The renderer runs with `securityLevel: "strict"`: every label
- * through DOMPurify, no HTML labels, links or click bindings, so a prompt
- * injection ends as text in a box. Nothing calls bindFunctions, so nothing
- * the source says is ever executed.
+ * these guards. The own drawing writes every label through draw.ts's XML
+ * escape: text only, never an attribute that loads. The renderer is gated
+ * (guard.ts): a source naming anything that could make the browser fetch
+ * (a URL, a url(), node data, a directive, a link, front matter beyond a
+ * title ...) is not rendered, and a drawing that would load from outside is
+ * not shown; either is an error, and the app shows the source as code. It
+ * runs with `securityLevel: "strict"` and HTML labels off for every kind (a
+ * flowchart's switch alone left a state or kanban label live markup).
  *
  * The renderer measures text with getBBox, which jsdom lacks, so a test
  * mocks `mermaid` and asserts on what this file does around it: parse,
@@ -162,10 +166,57 @@ function renderer(): Promise<Mermaid> {
 }
 
 function init(mermaid: Mermaid): void {
-  const vars = options.themeVariables();
-  mermaid.initialize({
+  mermaid.initialize(
+    mermaidConfig(options.themeVariables(), mermaid.mermaidAPI?.defaultConfig),
+  );
+}
+
+/** The keys a source may never set, whatever its kind's section: the
+ * renderer drops each from a directive or front matter, at any depth. The
+ * gate refuses both already; this holds if it ever does not. */
+const locked = [
+  "secure",
+  "securityLevel",
+  "startOnLoad",
+  "maxTextSize",
+  "maxEdges",
+  "suppressErrorRendering",
+  "dompurifyConfig",
+  "htmlLabels",
+  "themeCSS",
+  "themeVariables",
+  "fontFamily",
+  "altFontFamily",
+];
+/** Every key of the renderer's own config whose value ends up as CSS, a
+ * font, a colour or a URL (a C4 element's font, ticketBaseUrl ...), read
+ * off its defaults so a key a mermaid bump adds is locked too. */
+const risky =
+  /css|font|colou?r|fill|stroke|style|url|icon|theme|html|secur|dompurify/i;
+
+/** mermaidConfig is the renderer's whole configuration, the theme's
+ * variables in it, every risky key of defaults locked. Exported for the
+ * tests, which render with it. */
+export function mermaidConfig(
+  vars: Record<string, string>,
+  defaults: unknown = {},
+): Parameters<Mermaid["initialize"]>[0] {
+  const secure = new Set(locked);
+  const walk = (o: unknown) => {
+    if (o === null || typeof o !== "object" || Array.isArray(o)) return;
+    for (const [k, v] of Object.entries(o)) {
+      if (risky.test(k)) secure.add(k);
+      if (k !== "themeVariables") walk(v);
+    }
+  };
+  walk(defaults);
+  return {
+    secure: [...secure],
     startOnLoad: false,
     securityLevel: "strict",
+    // Every kind, not only flowcharts: an HTML label is live markup, and a
+    // styled span in one fetched its url().
+    htmlLabels: false,
     theme: "base",
     // The renderer's default look ("neo") puts a drop shadow under every
     // box; the chrome has none, so the drawing has none either.
@@ -175,7 +226,7 @@ function init(mermaid: Mermaid): void {
     flowchart: { htmlLabels: false, curve: "basis" },
     sequence: { useMaxWidth: true },
     er: { useMaxWidth: true },
-  });
+  };
 }
 
 /** A drawing, and whose: `own` is the package's (editorial.ts), drawn at
@@ -360,6 +411,12 @@ async function drawFrom(
 ): Promise<Drawn> {
   const own = await ours(mermaid, text, room);
   if (own !== null) return { svg: own, own: true };
+  // Gated, before and after: a source that could make the browser fetch is
+  // never rendered, a drawing that would is never shown (guard.ts). Thrown,
+  // like any refusal: draw keeps drawings only, and the app shows the
+  // source as code.
+  const before = unsafeSource(text);
+  if (before !== null) throw new Error(`unsafe: ${before}`);
   // In the chain the package's read is in: the renderer's db is one for the
   // page (serial.ts).
   const id = `${options.ids}-${++seq}`;
@@ -367,6 +424,8 @@ async function drawFrom(
     await mermaid.parse(text);
     return mermaid.render(id, text);
   });
+  const after = unsafeSvg(svg);
+  if (after !== null) throw new Error(`unsafe: ${after}`);
   return { svg };
 }
 
