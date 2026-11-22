@@ -1,0 +1,46 @@
+erDiagram
+    MEMBER ||--o{ PASS : "holds"
+    SEASON ||--o{ PASS : "covers"
+    MEMBER ||--o{ BOOKING : "makes"
+    CLASS ||--o{ BOOKING : "is taken in"
+    COACH ||--o{ CLASS : "leads"
+
+    MEMBER {
+        int member_id PK
+        string given_name
+        string family_name
+        string phone UK
+        date signed_up
+        enum level
+    }
+    SEASON {
+        int season_id PK
+        string label UK
+        decimal price
+        int months
+    }
+    PASS {
+        int pass_id PK
+        int member_id FK
+        int season_id FK
+        date valid_from
+        bool renews
+    }
+    COACH {
+        int coach_id PK
+        string name
+        string sport
+    }
+    CLASS {
+        int class_id PK
+        int coach_id FK
+        string day
+        time starts_at
+        int seats
+    }
+    BOOKING {
+        int booking_id PK
+        int member_id FK
+        int class_id FK
+        datetime made_at
+    }

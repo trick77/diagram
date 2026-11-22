@@ -1,0 +1,30 @@
+stateDiagram-v2
+    [*] --> Entwurf : Kurs angelegt
+    Entwurf : Entwurf (noch nicht sichtbar)
+    Geprueft : Inhalt geprueft
+    Preis_offen : Preis noch offen
+    Freigegeben : Preis festgelegt
+    Aufbau : Raum wird eingerichtet
+    Offen : Anmeldung offen
+    Beendet : Kurs abgeschlossen
+    Abgesagt : Kurs abgesagt
+    Beschwerde : Beschwerde erhalten
+    Gutschrift : Gutschrift erteilt
+
+    Entwurf --> Geprueft : zur Pruefung
+    Geprueft --> Preis_offen : Preis fehlt oder zu hoch
+    Geprueft --> Freigegeben : Preis passt
+    Preis_offen --> Freigegeben : Preis nachgetragen
+    Preis_offen --> Abgesagt : Frist verstrichen
+    Geprueft --> Abgesagt : Absage vor Freigabe
+    Freigegeben --> Abgesagt : Absage nach Freigabe
+    Freigegeben --> Aufbau : Termin fix
+    Aufbau --> Offen : Raum bereit
+    Offen --> Beendet : letzter Termin
+    Offen --> Beschwerde : Mangel am ersten Tag
+    Beendet --> Beschwerde : Mangel gemeldet
+    Beschwerde --> Gutschrift : Mangel anerkannt
+    Beschwerde --> Aufbau : Raum verbessert
+    Abgesagt --> Gutschrift : Gebuehr erstattet
+    Beendet --> [*]
+    Gutschrift --> [*]

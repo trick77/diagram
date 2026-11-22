@@ -1,6 +1,6 @@
 import { beforeAll, describe, it, expect } from "vitest";
 import mermaid from "mermaid";
-import { dropStrayMarks, escapeAngles } from "./text";
+import { dropStrayMarks, escapeAngles, repair } from "./text";
 import { toIR } from "./ir";
 import type { FlowIR } from "../ir";
 
@@ -24,6 +24,133 @@ async function labels(src: string): Promise<string[]> {
 async function parses(src: string): Promise<boolean> {
   return !!(await mermaid.parse(escapeAngles(src), { suppressErrors: true }));
 }
+
+// Shapes models wrote that the renderer refuses, each repaired to what the
+// model meant; the corpus holds a full diagram of each.
+describe("repair", () => {
+  async function refused(src: string): Promise<boolean> {
+    return !(await mermaid.parse(src, { suppressErrors: true }));
+  }
+
+  it("joins a mark spaced off its node's shape", async () => {
+    const src =
+      'flowchart TD\n  K["In"] --> D1{"Damaged?"} :::focus\n  D1 --> X';
+    expect(await refused(src)).toBe(true);
+    expect(repair(src)).toBe(
+      'flowchart TD\n  K["In"] --> D1{"Damaged?"}:::focus\n  D1 --> X',
+    );
+    expect(await refused(repair(src))).toBe(false);
+  });
+
+  it("moves a mark written inside a shape out after it", async () => {
+    const src = 'flowchart TD\n  a --> b{"Picked up?" :::focus}\n  b --> c';
+    expect(repair(src)).toBe(
+      'flowchart TD\n  a --> b{"Picked up?"}:::focus\n  b --> c',
+    );
+    expect(repair("flowchart TD\n  a([Start :::focus]) --> b")).toBe(
+      "flowchart TD\n  a([Start]):::focus --> b",
+    );
+    const d = await mermaid.mermaidAPI.getDiagramFromText(repair(src));
+    const ir = toIR(d.type, d.db) as FlowIR;
+    expect(ir.nodes.find((n) => n.id === "b")).toMatchObject({
+      label: "Picked up?",
+      focus: true,
+    });
+  });
+
+  it("knows a parallelogram's and a trapezoid's closers", async () => {
+    const src =
+      'flowchart TD\n  a[/"Upload" :::focus/] --> b[\\Check :::focus\\]';
+    expect(repair(src)).toBe(
+      'flowchart TD\n  a[/"Upload"/]:::focus --> b[\\Check\\]:::focus',
+    );
+    expect(await refused(repair(src))).toBe(false);
+  });
+
+  it("never rewrites a quoted label's own text", () => {
+    for (const src of [
+      'flowchart TD\n  a["f(x :::y)"] --> b',
+      'flowchart TD\n  a["x] :::y"] --> b',
+    ])
+      expect(repair(src)).toBe(src);
+  });
+
+  it("quotes an entity named like an erDiagram keyword", async () => {
+    const src =
+      "erDiagram\n  CLASS ||--o{ LESSON : books\n  TEACHER ||--o{ Class : runs\n  CLASS {\n    int id PK\n  }\n  style {\n    int id\n  }";
+    expect(await refused(src)).toBe(true);
+    expect(repair(src)).toBe(
+      'erDiagram\n  "CLASS" ||--o{ LESSON : books\n  TEACHER ||--o{ "Class" : runs\n  "CLASS" {\n    int id PK\n  }\n  "style" {\n    int id\n  }',
+    );
+    expect(await refused(repair(src))).toBe(false);
+  });
+
+  it("quotes it in every place an entity stands", async () => {
+    const cases: [string, string][] = [
+      // A one-line block.
+      [
+        "erDiagram\n  CLASS { int id PK }\n  CLASS ||--o{ LESSON : x",
+        'erDiagram\n  "CLASS" { int id PK }\n  "CLASS" ||--o{ LESSON : x',
+      ],
+      // An alias.
+      [
+        'erDiagram\n  CLASS["Course"] {\n    int id\n  }\n  CLASS ||--o{ LESSON : x',
+        'erDiagram\n  "CLASS"["Course"] {\n    int id\n  }\n  "CLASS" ||--o{ LESSON : x',
+      ],
+      // No spaces around the relationship.
+      [
+        "erDiagram\n  CLASS||--o{LESSON : x",
+        'erDiagram\n  "CLASS"||--o{LESSON : x',
+      ],
+      // A style names it bare: there the grammar takes it.
+      [
+        "erDiagram\n  CLASS ||--o{ LESSON : x\n  style CLASS fill:#f00",
+        'erDiagram\n  "CLASS" ||--o{ LESSON : x\n  style CLASS fill:#f00',
+      ],
+    ];
+    for (const [src, want] of cases) {
+      expect(await refused(src), src).toBe(true);
+      expect(repair(src)).toBe(want);
+      expect(await refused(repair(src)), want).toBe(false);
+    }
+  });
+
+  // A class statement refuses the keyword in its list, quoted or not: the
+  // entity takes its class as a mark instead, the others keep the line.
+  it("moves a keyword entity out of a class statement into a mark", async () => {
+    const src =
+      "erDiagram\n  CLASS ||--o{ LESSON : x\n  LESSON ||--o{ SEAT : y\n  class CLASS,SEAT focus";
+    expect(await refused(src)).toBe(true);
+    const out = repair(src);
+    expect(out).toBe(
+      'erDiagram\n  "CLASS":::focus ||--o{ LESSON : x\n  LESSON ||--o{ SEAT : y\n  class SEAT focus',
+    );
+    const d = await mermaid.mermaidAPI.getDiagramFromText(out);
+    const ir = toIR(d.type, d.db);
+    expect(
+      ir?.kind === "er" && ir.entities.filter((e) => e.focus).map((e) => e.id),
+    ).toEqual(["CLASS", "SEAT"]);
+    expect(
+      repair("erDiagram\n  CLASS ||--o{ LESSON : x\n  class CLASS focus"),
+    ).toBe('erDiagram\n  "CLASS":::focus ||--o{ LESSON : x');
+    // On the right of its relationship too.
+    const right = repair(
+      "erDiagram\n  TEACHER ||--o{ CLASS : runs\n  class CLASS focus",
+    );
+    expect(right).toBe('erDiagram\n  TEACHER ||--o{ "CLASS":::focus : runs');
+    expect(await refused(right)).toBe(false);
+  });
+
+  it("leaves a well-formed source byte for byte", () => {
+    for (const src of [
+      'flowchart TD\n  a["x"]:::focus --> b',
+      'erDiagram\n  LESSON ||--o{ "CLASS" : has',
+      "erDiagram\n  LESSON { int id PK }\n  class LESSON focus",
+      "sequenceDiagram\n  A->>B: hi :::focus",
+    ])
+      expect(repair(src)).toBe(src);
+  });
+});
 
 describe("dropStrayMarks", () => {
   it("drops a line that is a class mark and nothing else, which the renderer refuses", async () => {

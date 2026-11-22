@@ -1,0 +1,24 @@
+stateDiagram-v2
+    [*] --> TicketOpened : Laptop handed in
+    TicketOpened --> AwaitingEstimate : Estimate needed
+    AwaitingEstimate --> TicketApproved : Owner agrees
+    TicketOpened --> TicketApproved : Flat-rate fix
+    TicketApproved --> Withdrawn : Owner declines or goes quiet
+    TicketApproved --> Triage : Open, test, list parts
+    Triage --> PartsIn : Parts ordered & delivered
+    PartsIn --> Fixing : Technician begins
+    Fixing --> Fixing : Further tweaks
+    Fixing --> BurnIn : Repair done
+    BurnIn --> Done : Runs stable
+    BurnIn --> BurnInFailed : Crash, heat or noise
+    BurnInFailed --> BurnIn : Tuned again
+    BurnInFailed --> Parked : Part faulty again
+    BurnInFailed --> VendorProblem : Wrong part shipped
+    VendorProblem --> Fixing : Correct part in
+    VendorProblem --> Parked : Part out of stock
+    Parked --> BurnIn : Workaround applied
+    Parked --> ReturnedAsIs : Owner takes it back
+    Done --> [*]
+    ReturnedAsIs --> Credited
+    Withdrawn --> [*]
+    Credited --> [*]

@@ -3,7 +3,7 @@ import type { Room } from "../render";
 import { lie } from "../export";
 import { diagramKind, frontMatter } from "./kind";
 import { serial } from "./serial";
-import { dropStrayMarks, escapeAngles } from "./text";
+import { escapeAngles, repair } from "./text";
 
 /**
  * One mermaid source drawn into an SVG string: the package's own drawing
@@ -283,9 +283,10 @@ export function draw(src: string, room: Room = {}): Promise<Drawn> {
     p = (async (): Promise<Drawn> => {
       try {
         const mermaid = await renderer();
-        // A class mark on a line of its own marks nothing and makes the
-        // renderer refuse everything; it goes before anything else is read.
-        const written = dropStrayMarks(src);
+        // The shapes models write that the renderer refuses (a class mark
+        // on a line of its own, one spaced off or inside its shape, an
+        // entity named like a keyword) are mended before anything reads it.
+        const written = repair(src);
         const text = escapeAngles(written);
         if (text !== written) {
           try {
