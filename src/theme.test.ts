@@ -75,6 +75,17 @@ describe("textWidth for capitals", () => {
   });
 });
 
+describe("textWidth for digits", () => {
+  it("budgets a sans 0-9 at its measured 0.60em, the mono alike", () => {
+    expect(textWidth("0123456789", 100, "sans")).toBeCloseTo(600);
+    // Only 0-9 measured: another script's digit keeps the lowercase budget.
+    expect(textWidth("٣", 100, "sans")).toBeCloseTo(56);
+    expect(textWidth("v2", 100, "sans")).toBeCloseTo(116);
+    expect(textWidth("0123456789", 100, "mono")).toBeCloseTo(600);
+    expect(textWidth("０", 100, "sans")).toBeCloseTo(100);
+  });
+});
+
 describe("textWidth with tracking", () => {
   it("adds the letter-spacing per character", () => {
     expect(textWidth("ab", 10, "mono", 0.1)).toBeCloseTo(14);

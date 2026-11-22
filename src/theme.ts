@@ -156,10 +156,17 @@ const advance: Record<Face, number> = { sans: 0.56, mono: 0.6 };
  * 0.66 at 600): at the lowercase budget a label in capitals ran about 15%
  * past its box. */
 const capital = 0.68;
+/** A sans digit 0-9, measured at exactly 0.60 at 400 and at 600
+ * (2026-11-22). At the lowercase budget every digit ran 0.04em short, so a
+ * numeric label (`HTTP 503`, `v2.10`) outgrew its box. No margin: Plex's
+ * figures are tabular, every one the same width, unlike the letters. Only
+ * 0-9 were measured; another script's digit keeps the lowercase budget. */
+const digit = 0.6;
 
 /** textWidth is the width a string takes at a size: a wide or full-width
- * character costs 1em, a mark nothing, any other character its face's
- * advance, and every character the letter-spacing track (em) on top. */
+ * character costs 1em, a mark nothing, a sans capital or digit its own
+ * budget, any other character its face's advance, and every character the
+ * letter-spacing track (em) on top. */
 export function textWidth(
   s: string,
   size: number,
@@ -169,15 +176,15 @@ export function textWidth(
   let em = 0;
   for (const ch of s) {
     if (/\p{M}/u.test(ch)) continue;
-    em +=
-      track +
-      (wide(ch)
-        ? 1
-        : face === "sans" && /\p{Lu}/u.test(ch)
-          ? capital
-          : advance[face]);
+    em += track + (wide(ch) ? 1 : face === "sans" ? sans(ch) : advance.mono);
   }
   return em * size;
+}
+
+function sans(ch: string): number {
+  if (/\p{Lu}/u.test(ch)) return capital;
+  if (/[0-9]/.test(ch)) return digit;
+  return advance.sans;
 }
 
 function wide(ch: string): boolean {
