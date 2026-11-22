@@ -35,6 +35,15 @@ const labelOf = (l: QuadrantLayout, s: string) =>
 const dotOf = (l: QuadrantLayout, i: number) => l.dots[i];
 
 describe("layoutQuadrant", () => {
+  it("leaves the drawing's 32 round everything it draws", () => {
+    const l = layoutQuadrant(quadrant([pt("Automate reports", 0.3, 0.8)]));
+    for (const t of l.texts) {
+      expect(t.x).toBeGreaterThanOrEqual(32);
+      expect(t.y).toBeGreaterThanOrEqual(32);
+    }
+    expect(l.plot.x).toBeGreaterThanOrEqual(32);
+  });
+
   it("draws a square plot with the axis cross through its centre", () => {
     const l = layoutQuadrant(quadrant([pt("Automate reports", 0.3, 0.8)]));
     const p = l.plot;

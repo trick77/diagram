@@ -33,10 +33,10 @@ export const treeChildren = 5;
 
 /** From a parent's foot to its bus, and from the bus to a child's top: the
  * second holds the arrowhead. */
-const drop = 20;
-const childDrop = 24;
+const drop = 28;
+const childDrop = 32;
 /** Between two neighbouring subtrees. */
-const siblingGap = 24;
+const siblingGap = 32;
 
 /** treeOf is a flow's children by node, in the order written, and its
  * root, when the flow is a tree this layout draws; otherwise null. */
@@ -92,7 +92,7 @@ export function layoutTree(ir: FlowIR): FlowLayout | null {
   const tree = treeOf(ir);
   if (tree === null) return null;
   const { root, kids } = tree;
-  const w = boxWidth(ir.nodes, 128, 192);
+  const w = boxWidth(ir.nodes, 128, 200);
   const boxes = new Map<string, NodeBox>(
     ir.nodes.map((n) => [
       n.id,

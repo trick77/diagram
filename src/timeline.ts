@@ -48,7 +48,7 @@ export type TimelineLayout = {
   texts: PlotText[];
 };
 
-const margin = 24;
+const margin = 32;
 /** The least step between two dots, flat, and the widest a label runs
  * before it wraps. */
 export const minStep = 120;

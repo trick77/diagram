@@ -523,6 +523,31 @@ describe("looksLikeCode", () => {
   });
 });
 
+describe("room", () => {
+  it("gives a step air: 32 round the drawing, 40 between boxes, 44 tall, 20 inside", () => {
+    const l = layoutSpine(
+      flow([n("a", "Gather"), n("b", "Sort")], [e("a", "b")]),
+    )!;
+    const a = l.nodes.find((x) => x.id === "a")!;
+    const b = l.nodes.find((x) => x.id === "b")!;
+    expect(a.y).toBe(32);
+    expect(a.h).toBe(44);
+    expect(b.y - (a.y + a.h)).toBe(40);
+  });
+
+  it("frames a label with 20 each side and still holds a 208px one on one line", () => {
+    // 28 characters at 0.56em of 13px: about 204px of text.
+    const label = "aaaaaaa aaaaaaa aaaaaaa aaaa";
+    expect(textWidth(label, 13, "sans")).toBeGreaterThan(200);
+    const l = layoutSpine(
+      flow([n("a", label), n("b", "Sort")], [e("a", "b")]),
+    )!;
+    const a = l.nodes.find((x) => x.id === "a")!;
+    expect(a.lines).toEqual([label]);
+    expect(a.w).toBe(248);
+  });
+});
+
 describe("labelBox", () => {
   it("sets an arrow's prose as a note: small mono capitals, tracked", () => {
     const b = labelBox("yes");

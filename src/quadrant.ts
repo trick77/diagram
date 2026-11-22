@@ -33,7 +33,7 @@ export type QuadrantLayout = {
   texts: PlotText[];
 };
 
-const margin = 24;
+const margin = 32;
 /** The plot's side. A label stays in its quadrant, so half of this is the
  * most a label beside a dot has: at 400 three words at a fifth of the way
  * in already wrapped. With the axis's name it is still under a 700px text

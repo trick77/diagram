@@ -88,14 +88,16 @@ export type FlowLayout = {
 
 export type Elk = { layout(graph: ElkNode): Promise<ElkNode> };
 
-/** Text to frame, each side. */
-const padX = 16;
+/** Text to frame, each side. The measures below were tight (16, 24, 24,
+ * a 40 box): every box sat on its neighbour and the arrows between them
+ * were shorter than their heads were long to read. */
+const padX = 20;
 /** Space around the drawing, inside the canvas. Exported, with boxWidth,
  * lay and zonePad, for a consumer's own layout (almanach's maps) drawn by
  * drawFlow on the same measures. */
-export const margin = 24;
+export const margin = 32;
 /** Vertical space between two boxes on the path; the arrow between them. */
-const stepGap = 24;
+const stepGap = 40;
 /** Clear space between a label and its line. */
 const labelGap = 8;
 const labelLine = 15;
@@ -163,7 +165,7 @@ export function boxWidth(
 export function lay(n: FlowNodeIR, kind: NodeKind, w: number): NodeBox {
   const s = styleOf(n);
   const lines = wrap(n.label, w - 2 * padX, s.size, s.face);
-  const base = kind === "outcome" ? 36 : 40;
+  const base = kind === "outcome" ? 40 : 44;
   return {
     id: n.id,
     kind,
@@ -421,12 +423,12 @@ export function layoutSpine(ir: FlowIR): FlowLayout | null {
   const pathW = boxWidth(
     pathNodes.filter((n) => n.shape !== "decision"),
     200,
-    240,
+    248,
   );
   const sideNodes = [...chains.values()].flatMap((c) =>
     c.nodes.map((id) => byId.get(id)!),
   );
-  const sideW = boxWidth(sideNodes, 200, 280);
+  const sideW = boxWidth(sideNodes, 200, 288);
   const boxes = new Map<string, NodeBox>();
   for (const n of pathNodes)
     boxes.set(n.id, shaped(n, n.shape === "pill" ? "pill" : "step", pathW));
@@ -692,7 +694,7 @@ export function titleRoom(title: string): number {
  * comes within a label's height above it. */
 export function layoutMapping(ir: FlowIR): FlowLayout {
   const [za, zb] = ir.zones;
-  const w = boxWidth(ir.nodes, 160, 240);
+  const w = boxWidth(ir.nodes, 160, 248);
   const left = ir.nodes.filter((n) => n.zone === za.id);
   const right = ir.nodes.filter((n) => n.zone === zb.id);
   const author = new Map(ir.nodes.map((n, i) => [n.id, i]));
@@ -971,7 +973,7 @@ export async function layoutElk(
   const w = boxWidth(
     ir.nodes.filter((n) => n.shape !== "decision"),
     160,
-    240,
+    248,
   );
   const boxes = new Map<string, NodeBox>();
   for (const n of ir.nodes)
@@ -1032,8 +1034,8 @@ export async function layoutElk(
   // options stay on the root, which orders the whole hierarchy; set on a
   // zone as well, they crashed the engine.
   const spacing: Record<string, string> = {
-    "elk.spacing.nodeNode": "32",
-    "elk.layered.spacing.nodeNodeBetweenLayers": "40",
+    "elk.spacing.nodeNode": "40",
+    "elk.layered.spacing.nodeNodeBetweenLayers": "56",
     "elk.spacing.edgeNode": "24",
     "elk.spacing.edgeEdge": "12",
     "elk.layered.spacing.edgeEdgeBetweenLayers": "12",

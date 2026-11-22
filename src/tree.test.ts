@@ -97,6 +97,16 @@ describe("isTree", () => {
   });
 });
 
+describe("layoutTree's room", () => {
+  it("leaves 32 between neighbouring subtrees and from the bus to a child", () => {
+    const l = layoutTree(tree("a>b a>c"))!;
+    const [b, c] = [box(l, "b"), box(l, "c")];
+    expect(c.x - (b.x + b.w)).toBe(32);
+    const a = box(l, "a");
+    expect(b.y - (a.y + a.h)).toBe(28 + 32);
+  });
+});
+
 describe("layoutTree", () => {
   it("declines a flow that is not a tree", () => {
     expect(layoutTree(tree("a>b b>c"))).toBeNull();

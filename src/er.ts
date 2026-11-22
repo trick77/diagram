@@ -177,7 +177,7 @@ export async function layoutER(ir: ERIR, elk: Elk): Promise<ERLayout> {
       "elk.padding": "[top=0,left=0,bottom=0,right=0]",
       // Wider than a flow's: a line's two ends carry a mark each, and its
       // middle a role, between tables that are themselves wide.
-      "elk.spacing.nodeNode": "40",
+      "elk.spacing.nodeNode": "48",
       "elk.layered.spacing.nodeNodeBetweenLayers": "64",
       "elk.spacing.edgeNode": "24",
       "elk.spacing.edgeEdge": "16",
