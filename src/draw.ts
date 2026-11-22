@@ -80,6 +80,63 @@ const tipGap = 1;
 
 const f = (v: number) => +v.toFixed(1);
 
+/** The radius of a connector's bend: a sharp corner read as a drafting
+ * line, a quarter arc as a route. */
+const bendRadius = 8;
+/** How much of a run before an arrowhead stays straight: a 7-unit head at
+ * a 1.4 stroke is about 10px long. */
+const headRun = 10;
+/** An entity line's straight end, by the cardinality drawn on it (mark's
+ * reach, plus 2): a bar pair 13px, a crow's foot and its ring 22. */
+const markRun: Record<Card, number> = {
+  one: 15,
+  zeroOrOne: 23,
+  oneOrMore: 18,
+  zeroOrMore: 24,
+};
+/** A self message's bend: its loop is 20px tall. */
+const selfBend = 6;
+
+/** route is a connector as path data: straight runs joined by quarter arcs
+ * of radius r. An arc takes at most half of a run it shares with another
+ * bend, and leaves keep[0] at the start and keep[1] at the end straight,
+ * where a head or a mark sits and turns with the line. */
+export function route(
+  points: Point[],
+  r = bendRadius,
+  keep: [number, number] = [0, 0],
+): string {
+  const p = points;
+  // An edge the engine left without a section has no points.
+  if (p.length === 0) return "";
+  const at = (q: Point) => `${f(q.x)},${f(q.y)}`;
+  let d = `M${at(p[0])}`;
+  for (let i = 1; i < p.length - 1; i++) {
+    const [a, b, c] = [p[i - 1], p[i], p[i + 1]];
+    const l1 = Math.hypot(b.x - a.x, b.y - a.y);
+    const l2 = Math.hypot(c.x - b.x, c.y - b.y);
+    const room1 = i === 1 ? l1 - keep[0] : l1 / 2;
+    const room2 = i === p.length - 2 ? l2 - keep[1] : l2 / 2;
+    const rr = Math.min(r, room1, room2);
+    // Under half the radius a corner stays sharp: beside the others a
+    // 2px arc read as a mistake, not a bend.
+    if (rr < r / 2 || l1 === 0 || l2 === 0) {
+      d += ` L${at(b)}`;
+      continue;
+    }
+    const p1 = {
+      x: b.x - ((b.x - a.x) / l1) * rr,
+      y: b.y - ((b.y - a.y) / l1) * rr,
+    };
+    const p2 = {
+      x: b.x + ((c.x - b.x) / l2) * rr,
+      y: b.y + ((c.y - b.y) / l2) * rr,
+    };
+    d += ` L${at(p1)} Q${at(b)} ${at(p2)}`;
+  }
+  return d + ` L${at(p[p.length - 1])}`;
+}
+
 /** shorten pulls an end of a polyline back along its last segment. */
 export function shorten(
   points: Point[],
@@ -87,6 +144,7 @@ export function shorten(
   by: number,
 ): Point[] {
   const p = points.map((q) => ({ ...q }));
+  if (p.length < 2) return p;
   const [a, b] = atStart ? [p[0], p[1]] : [p[p.length - 1], p[p.length - 2]];
   const len = Math.hypot(a.x - b.x, a.y - b.y);
   if (len <= by) return p;
@@ -302,9 +360,12 @@ export function drawSequence(
  * not markers, so no id is needed. */
 export function drawER(l: ERLayout, pal: Palette): string {
   return svg(l.width, l.height, pal, "", [
-    ...l.edges.map((e) =>
-      el("polyline", {
-        points: e.points.map((p) => `${f(p.x)},${f(p.y)}`).join(" "),
+    ...l.edges.map((e, i) =>
+      el("path", {
+        d: route(e.points, bendRadius, [
+          markRun[l.cards[i].from],
+          markRun[l.cards[i].to],
+        ]),
         fill: "none",
         stroke: pal.muted,
         "stroke-width": 1.4,
@@ -470,8 +531,9 @@ export function drawClass(l: ClassLayout, pal: Palette): string {
       if (pts.length < 2) return "";
       if (from.mark) pts = shorten(pts, true, markLength[from.mark]);
       if (to.mark) pts = shorten(pts, false, markLength[to.mark]);
-      return el("polyline", {
-        points: pts.map((p) => `${f(p.x)},${f(p.y)}`).join(" "),
+      // The marks sit past the shortened ends, on the line's own heading.
+      return el("path", {
+        d: route(pts),
         fill: "none",
         stroke: pal.muted,
         "stroke-width": 1.4,
@@ -881,8 +943,13 @@ function message(m: SeqMessage, pal: Palette, ids: string): string {
   if (m.head === "both") pts = shorten(pts, true, tipGap);
   const end =
     m.head === "open" ? "open" : m.head === "cross" ? "cross" : "arrow";
-  return el("polyline", {
-    points: pts.map((p) => `${f(p.x)},${f(p.y)}`).join(" "),
+  // A self message's loop bends tighter than a flow's arrow: it is 20px
+  // tall.
+  return el("path", {
+    d: route(pts, selfBend, [
+      m.head === "both" ? headRun : 0,
+      m.head === "none" ? 0 : headRun,
+    ]),
     fill: "none",
     stroke: pal.muted,
     "stroke-width": 1.4,
@@ -955,8 +1022,11 @@ function edge(e: EdgeRoute, pal: Palette, ids: string): string {
   if (e.head !== "none") pts = shorten(pts, false, headGap);
   if (e.head === "both") pts = shorten(pts, true, headGap);
   const marker = `url(#${ids}-${e.warn ? "warn" : "arrow"})`;
-  return el("polyline", {
-    points: pts.map((p) => `${f(p.x)},${f(p.y)}`).join(" "),
+  return el("path", {
+    d: route(pts, bendRadius, [
+      e.head === "both" ? headRun : 0,
+      e.head === "none" ? 0 : headRun,
+    ]),
     fill: "none",
     stroke: e.warn ? pal.warn : pal.muted,
     "stroke-width": 1.4,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { drawFlow, drawSequence, shorten } from "./draw";
+import { drawFlow, drawSequence, route, shorten } from "./draw";
 import type { SeqRow } from "./ir";
 import type { FlowLayout, NodeBox } from "./layout";
 import { layoutSequence } from "./sequence";
@@ -40,6 +40,10 @@ const layout = (over: Partial<FlowLayout> = {}): FlowLayout => ({
   zones: [],
   ...over,
 });
+
+/** The connectors: paths drawn as lines, not a marker's head or a filled
+ * shape. */
+const lines = 'svg > path[fill="none"]';
 
 const parse = (svg: string) =>
   new DOMParser().parseFromString(svg, "image/svg+xml");
@@ -142,7 +146,7 @@ describe("drawFlow", () => {
         "t",
       ),
     );
-    const [warn, loop] = [...doc.querySelectorAll("polyline")];
+    const [warn, loop] = [...doc.querySelectorAll(lines)];
     expect(warn.getAttribute("stroke")).toBe(pal.warn);
     expect(warn.getAttribute("marker-end")).toBe("url(#t-warn)");
     expect(loop.getAttribute("stroke")).toBe(pal.muted);
@@ -187,9 +191,102 @@ describe("drawFlow", () => {
       (x) => x.textContent === "red",
     )!;
     expect(t.getAttribute("transform")).toMatch(/^rotate\(-90 /);
-    expect(doc.querySelector("polyline")!.getAttribute("marker-start")).toBe(
+    expect(doc.querySelector(lines)!.getAttribute("marker-start")).toBe(
       "url(#t-arrow)",
     );
+  });
+});
+
+describe("route", () => {
+  it("joins two runs with a quarter arc of 8px", () => {
+    expect(
+      route([
+        { x: 0, y: 0 },
+        { x: 0, y: 40 },
+        { x: 40, y: 40 },
+      ]),
+    ).toBe("M0,0 L0,32 Q0,40 8,40 L40,40");
+  });
+
+  it("leaves a straight line straight", () => {
+    expect(
+      route([
+        { x: 0, y: 0 },
+        { x: 0, y: 40 },
+      ]),
+    ).toBe("M0,0 L0,40");
+  });
+
+  it("shares a short run between its two bends", () => {
+    expect(
+      route([
+        { x: 0, y: 0 },
+        { x: 0, y: 40 },
+        { x: 10, y: 40 },
+        { x: 10, y: 80 },
+      ]),
+    ).toBe("M0,0 L0,35 Q0,40 5,40 L5,40 Q10,40 10,45 L10,80");
+  });
+
+  it("keeps an end straight for the head or mark that sits there", () => {
+    expect(
+      route(
+        [
+          { x: 0, y: 0 },
+          { x: 0, y: 40 },
+          { x: 16, y: 40 },
+        ],
+        8,
+        [0, 10],
+      ),
+    ).toBe("M0,0 L0,34 Q0,40 6,40 L16,40");
+  });
+
+  it("bends sharp rather than with an arc under half the radius", () => {
+    // Beside 8px corners a 2px one read as a mistake.
+    expect(
+      route(
+        [
+          { x: 0, y: 0 },
+          { x: 0, y: 40 },
+          { x: 12, y: 40 },
+        ],
+        8,
+        [0, 10],
+      ),
+    ).toBe("M0,0 L0,40 L12,40");
+  });
+
+  it("draws nothing for a route with no points, rather than throw", () => {
+    expect(route([])).toBe("");
+    expect(shorten([], false, 4)).toEqual([]);
+  });
+
+  it("draws a bent arrow with its corner rounded", () => {
+    const doc = parse(
+      drawFlow(
+        layout({
+          edges: [
+            {
+              from: "a",
+              to: "b",
+              points: [
+                { x: 0, y: 0 },
+                { x: 0, y: 60 },
+                { x: 80, y: 60 },
+              ],
+              dashed: false,
+              warn: false,
+              head: "end",
+            },
+          ],
+        }),
+        pal,
+        "t",
+      ),
+    );
+    const d = doc.querySelector('svg > path[fill="none"]')!.getAttribute("d");
+    expect(d).toBe("M0,0 L0,52 Q0,60 8,60 L76,60");
   });
 });
 
@@ -249,7 +346,7 @@ describe("drawSequence", () => {
     expect(lifelines).toHaveLength(3);
     for (const x of lifelines)
       expect(x.getAttribute("stroke-dasharray")).toBe("4 4");
-    const arrows = [...doc.querySelectorAll("polyline")];
+    const arrows = [...doc.querySelectorAll(lines)];
     expect(arrows.map((p) => p.getAttribute("marker-end"))).toEqual([
       "url(#s-arrow)",
       "url(#s-arrow)",
@@ -311,10 +408,11 @@ describe("drawSequence", () => {
     const end = (i: number) =>
       Number(
         doc
-          .querySelectorAll("polyline")
-          [i].getAttribute("points")!
+          .querySelectorAll(lines)
+          [i].getAttribute("d")!
           .split(" ")
           .slice(-1)[0]
+          .replace(/^[A-Z]/, "")
           .split(",")[0],
       );
     const b = l.lifelines.find((x) => x.id === "b")!.x;

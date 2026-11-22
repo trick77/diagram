@@ -209,7 +209,10 @@ describe("drawER", () => {
       pal.line,
       pal.accent,
     ]);
-    expect(doc.querySelector("path")?.getAttribute("fill")).toBe(pal.tint);
+    // The head: the one path that fills, the lines being paths too.
+    expect(
+      doc.querySelector('path:not([fill="none"])')?.getAttribute("fill"),
+    ).toBe(pal.tint);
   });
 
   it("marks each end with its cardinality: bars for one, a ring for zero, a crow's foot for many", async () => {
@@ -241,7 +244,7 @@ describe("drawER", () => {
   it("dashes a non-identifying relationship in the muted, never the boundary amber", async () => {
     const l = await layoutER(threads, new ELK());
     const svg = drawER(l, pal);
-    const lines = [...parse(svg).querySelectorAll("polyline")];
+    const lines = [...parse(svg).querySelectorAll('svg > path[fill="none"]')];
     expect(lines.map((p) => p.getAttribute("stroke-dasharray"))).toEqual([
       null,
       "5 4",
