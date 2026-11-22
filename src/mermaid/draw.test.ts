@@ -186,6 +186,45 @@ describe("drawnNow", () => {
   });
 });
 
+// The renderer is gated, the own drawing is not: it writes text, escaped.
+describe("draw and a source that could fetch", () => {
+  it("never hands it to the renderer, and says why", async () => {
+    const out = await draw(
+      'flowchart TD\n  A@{ img: "https://evil.example/a.png" } --> B',
+    );
+    expect(out).toEqual({ error: expect.stringMatching(/^unsafe: /) });
+    expect(parse).not.toHaveBeenCalled();
+    expect(renderSvg).not.toHaveBeenCalled();
+  });
+
+  it("refuses a drawing the renderer made that loads from outside", async () => {
+    renderSvg.mockResolvedValueOnce({
+      svg: '<svg><image href="x.png"/></svg>',
+    });
+    const out = await draw('pie\n  "one" : 1');
+    expect(out).toEqual({ error: expect.stringMatching(/^unsafe: /) });
+  });
+
+  // Drawings are kept, refusals never: the drawing refused once (a renderer
+  // that moved on, say) is drawn afresh the next time it is asked for.
+  it("keeps no refusal", async () => {
+    renderSvg.mockResolvedValueOnce({
+      svg: '<svg><image href="x.png"/></svg>',
+    });
+    const src = 'pie\n  "two" : 2';
+    expect(await draw(src)).toEqual({
+      error: expect.stringMatching(/^unsafe: /),
+    });
+    expect(await draw(src)).toEqual({ svg: expect.stringContaining("drawn") });
+  });
+
+  it("lets the package draw it itself", async () => {
+    editorial.mockResolvedValueOnce('<svg data-own="1"></svg>');
+    const out = await draw('flowchart TD\n  A["see https://x"] --> B');
+    expect(out).toEqual({ svg: '<svg data-own="1"></svg>', own: true });
+  });
+});
+
 describe("draw", () => {
   it("renders a source once, however often it is asked for", async () => {
     const src = "flowchart LR\n once --> twice";

@@ -52,6 +52,7 @@ Diagram layout and SVG drawing for the browser, one copy for rongo, almanach and
   Anything thrown in the own path falls back to mermaid, never a failed picture.
 - `draw` caches drawings, never a refusal: a chunk gone after a redeploy must not stick for the session.
 - `toIR` alone reads mermaid's internals (the parse db): a mermaid bump breaks there and in the corpus test.
+- Fences may be injected: renderer path fails closed (guard.ts); a safety rewrite leaked and broke.
 
 ## Measured constants (rongo docs/measurements, 2026-10-25)
 
