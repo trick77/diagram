@@ -89,12 +89,12 @@ export function DiagramView({
         </>
       }
     >
-      {/* The drawing fits the sheet both ways and grows no further than
-          1:1 (useFit): a small diagram stays 1:1 and is centred. One
-          explicit column: an implicit one grows to the drawing, the
-          wrapper's max-w-full then caps nothing, and a wide drawing
-          scrolled sideways (1578px in a 1198px body). A flex column, so
-          where nothing could be measured a tall one scrolls here instead
+      {/* The drawing fits the sheet's width, its height while the text
+          stays readable, and grows no further than 1:1 (useFit): a small
+          diagram stays 1:1 and is centred. One explicit column: an
+          implicit one grows to the drawing, the wrapper's max-w-full then
+          caps nothing, and a wide drawing scrolled sideways (1578px in a
+          1198px body). A flex column, so a tall one scrolls here instead
           of overflowing the sheet's max height. */}
       <div
         ref={body}

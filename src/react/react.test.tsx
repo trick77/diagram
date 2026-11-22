@@ -320,6 +320,48 @@ describe("DiagramView fitting its drawing", () => {
     expect(parseFloat(wrapper.style.width)).toBeCloseTo((1150 * 761) / 783, 0);
   });
 
+  /** The scale a W×H drawing is shown at in a body of w×h (the sheet's
+   * header, 60px, on top of it). */
+  function scaleIn(w: number, h: number, W: number, H: number): number {
+    restore.splice(0).forEach((undo) => undo());
+    room(w, h + 60);
+    const svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"></svg>`;
+    return parseFloat(shown(svg).style.width) / W;
+  }
+
+  // A 22-node map fitted to a 720px body drew at 0.49: 13px labels at ~6px.
+  // The height shrinks it no further than the floor; the body scrolls.
+  it("lets a tall drawing scroll rather than shrink its text past reading", () => {
+    expect(scaleIn(1200, 720, 1080, 1458)).toBeCloseTo(0.75, 3);
+  });
+
+  it("fits a wide and tall one whole while the floor allows it", () => {
+    expect(scaleIn(1000, 620, 1600, 1000)).toBeCloseTo(0.62, 3);
+  });
+
+  it("follows the height down to the floor and stops there", () => {
+    expect(scaleIn(1200, 760, 1000, 1000)).toBeCloseTo(0.76, 3);
+    expect(scaleIn(1200, 740, 1000, 1000)).toBeCloseTo(0.75, 3);
+  });
+
+  // No jump at the threshold: two rooms 2px apart, either side of the
+  // floor, show the drawing within 1% of each other.
+  it("changes the scale smoothly as the room grows", () => {
+    const below = scaleIn(1200, 749, 1000, 1000);
+    const above = scaleIn(1200, 751, 1000, 1000);
+    expect(Math.abs(above - below) / below).toBeLessThan(0.01);
+  });
+
+  // Narrower than 0.75 already: the floor is 0.9 of the width's fit.
+  it("keeps a narrow sheet's drawing near its width-fitted size", () => {
+    expect(scaleIn(1000, 600, 1600, 2000)).toBeCloseTo(0.5625, 3);
+  });
+
+  it("fits a phone's screen both ways when the height costs little", () => {
+    expect(scaleIn(390, 740, 1150, 2200)).toBeCloseTo(740 / 2200, 3);
+    expect(scaleIn(390, 800, 1150, 783)).toBeCloseTo(390 / 1150, 3);
+  });
+
   it("shrinks a wide one to the width, and never grows a small one", () => {
     room(800, 900);
     expect(
