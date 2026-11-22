@@ -4,7 +4,7 @@ import type { ERIR, EntityIR, RelIR } from "./ir";
 import { layoutER, markRoom } from "./er";
 import { checkER } from "./check/check";
 import { drawER, drawFlow } from "./draw";
-import type { Palette } from "./theme";
+import { frameOf, mix, type Palette } from "./theme";
 import { layoutSpine } from "./layout";
 
 const pal: Palette = {
@@ -205,14 +205,28 @@ describe("drawER", () => {
     const frames = [...doc.querySelectorAll("rect")].filter(
       (r) => r.getAttribute("fill") === "none",
     );
+    // A table framed as a step is, the focus in the accent.
     expect(frames.map((r) => r.getAttribute("stroke"))).toEqual([
-      pal.line,
+      frameOf(pal),
       pal.accent,
     ]);
     // The head: the one path that fills, the lines being paths too.
     expect(
       doc.querySelector('path:not([fill="none"])')?.getAttribute("fill"),
     ).toBe(pal.tint);
+  });
+
+  it("marks a focus table whole: its head tinted and ruled in the accent too", async () => {
+    const l = await layoutER(
+      model([entity("A", [["int", "id"]], true)], []),
+      new ELK(),
+    );
+    const doc = parse(drawER(l, pal));
+    const head = doc.querySelector('path:not([fill="none"])')!;
+    expect(head.getAttribute("fill")).toBe(mix(pal.accent, pal.tint, 0.11));
+    const rule = head.nextElementSibling!;
+    expect(rule.tagName).toBe("line");
+    expect(rule.getAttribute("stroke")).toBe(pal.accent);
   });
 
   it("marks each end with its cardinality: bars for one, a ring for zero, a crow's foot for many", async () => {

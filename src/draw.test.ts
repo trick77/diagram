@@ -82,13 +82,53 @@ describe("drawFlow", () => {
     ).toContain('</text><script>alert("x")</script>');
   });
 
-  it("frames the focus in the accent at twice the weight", () => {
+  it("frames the focus in the accent over a tint of it", () => {
     const doc = parse(
       drawFlow(layout({ nodes: [node({ focus: true })] }), pal, "t"),
     );
     const frame = [...doc.querySelectorAll("rect")].slice(-1)[0];
     expect(frame.getAttribute("stroke")).toBe(pal.accent);
+    expect(frame.getAttribute("stroke-width")).toBe("1.4");
+    // 11% of the accent over the surface.
+    expect(frame.getAttribute("fill")).toBe("#2b201b");
+  });
+
+  it("frames a step and a decision firmer than the line, as strong as the arrows ask", () => {
+    const doc = parse(
+      drawFlow(
+        layout({
+          nodes: [node({}), node({ id: "d", kind: "decision", y: 100, h: 52 })],
+        }),
+        pal,
+        "t",
+      ),
+    );
+    const step = [...doc.querySelectorAll("rect")].slice(-1)[0];
+    expect(step.getAttribute("stroke")).toBe("#76746f");
+    expect(doc.querySelector("polygon")!.getAttribute("stroke")).toBe(
+      "#76746f",
+    );
+  });
+
+  it("draws a start or an end as a pill in the tint, framed firm enough to stand in a lane", () => {
+    const doc = parse(
+      drawFlow(layout({ nodes: [node({ kind: "pill" })] }), pal, "t"),
+    );
+    const pill = [...doc.querySelectorAll("rect")].slice(-1)[0];
+    expect(pill.getAttribute("rx")).toBe("20");
+    expect(pill.getAttribute("fill")).toBe(pal.tint);
+    // A lane is in the tint too: in the line colour the pill dissolved.
+    expect(pill.getAttribute("stroke")).toBe("#76746f");
+  });
+
+  it("keeps the focus at twice the weight where the palette cannot be mixed", () => {
+    const vars = { ...pal, accent: "var(--a)", surface: "var(--s)" };
+    const doc = parse(
+      drawFlow(layout({ nodes: [node({ focus: true })] }), vars, "t"),
+    );
+    const frame = [...doc.querySelectorAll("rect")].slice(-1)[0];
     expect(frame.getAttribute("stroke-width")).toBe("2");
+    expect(frame.getAttribute("fill")).toBe("var(--s)");
   });
 
   it("draws an outcome in the tint, read from its left edge, and a decision as a diamond", () => {
@@ -455,18 +495,49 @@ describe("drawSequence", () => {
     expect(patch.getAttribute("stroke")).toBeNull();
   });
 
-  it("titles a frame with its keyword, then its condition in the muted", () => {
+  it("frames a participant as a step is framed", () => {
+    const doc = parse(drawSequence(seqLayout(), pal, "s"));
+    const t = [...doc.querySelectorAll("text")].find(
+      (x) => x.textContent === "Checkout",
+    )!;
+    expect(t.previousElementSibling!.getAttribute("stroke")).toBe("#76746f");
+  });
+
+  it("titles a frame with its keyword in a tab, then its condition in the muted", () => {
     const doc = parse(drawSequence(seqLayout(), pal, "s"));
     const texts = [...doc.querySelectorAll("text")];
-    const kw = texts.find((t) => t.textContent === "alt")!;
-    expect(kw.getAttribute("font-weight")).toBe("600");
-    expect(kw.getAttribute("fill")).toBe(pal.fg);
+    const kw = texts.find((t) => t.textContent === "ALT")!;
+    expect(kw.getAttribute("fill")).toBe(pal.muted);
+    expect(kw.getAttribute("letter-spacing")).toBe("0.12em");
+    const tab = kw.previousElementSibling!;
+    expect(tab.tagName).toBe("rect");
+    expect(tab.getAttribute("stroke")).toBe(pal.line);
+    expect(Number(tab.getAttribute("x"))).toBeLessThan(
+      Number(kw.getAttribute("x")),
+    );
     const cond = texts.find((t) => t.textContent === "nothing delivered")!;
+    expect(Number(cond.getAttribute("x"))).toBeGreaterThan(
+      Number(tab.getAttribute("x")) + Number(tab.getAttribute("width")),
+    );
     expect(cond.getAttribute("fill")).toBe(pal.muted);
     expect(Number(cond.getAttribute("x"))).toBeGreaterThan(
       Number(kw.getAttribute("x")),
     );
     expect(cond.getAttribute("y")).toBe(kw.getAttribute("y"));
+  });
+
+  it("keeps the keyword's tab inside the title band the check sees", () => {
+    const l = seqLayout();
+    const doc = parse(drawSequence(l, pal, "s"));
+    const kw = [...doc.querySelectorAll("text")].find(
+      (t) => t.textContent === "ALT",
+    )!;
+    const tab = kw.previousElementSibling!;
+    const t = l.frames[0].title;
+    expect(Number(tab.getAttribute("y"))).toBeGreaterThanOrEqual(t.y);
+    expect(
+      Number(tab.getAttribute("y")) + Number(tab.getAttribute("height")),
+    ).toBeLessThanOrEqual(t.y + t.h);
   });
 
   it("ends a head on its lifeline, a cross centred on it", () => {

@@ -59,6 +59,65 @@ export function palette(): Palette {
   return out;
 }
 
+/** mix is a laid over b at t (0..1), as hex, or null when either is not an
+ * opaque hex or rgb() value (a var() under jsdom, a named colour, hsl(), a
+ * see-through colour, which would mix over black). Mixed here, not with
+ * color-mix(): the drawing travels on as a file with no stylesheet, and an
+ * SVG viewer outside a browser draws no color-mix(). */
+export function mix(a: string, b: string, t: number): string | null {
+  const p = rgb(a);
+  const q = rgb(b);
+  if (p === null || q === null) return null;
+  const k = Math.min(1, Math.max(0, t));
+  const hex = (v: number) =>
+    Math.round(Math.min(255, Math.max(0, v)))
+      .toString(16)
+      .padStart(2, "0");
+  return "#" + p.map((v, i) => hex(v * k + q[i] * (1 - k))).join("");
+}
+
+function rgb(c: string): number[] | null {
+  const s = c.trim();
+  const short = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(s);
+  if (short) return short.slice(1).map((h) => parseInt(h + h, 16));
+  const long = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})(ff)?$/i.exec(s);
+  if (long) return long.slice(1, 4).map((h) => parseInt(h, 16));
+  const fn =
+    /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)\s*(?:[,/]\s*([\d.]+%?)\s*)?\)$/i.exec(
+      s,
+    );
+  if (!fn) return null;
+  const alpha = fn[4];
+  if (
+    alpha !== undefined &&
+    parseFloat(alpha) !== (alpha.endsWith("%") ? 100 : 1)
+  )
+    return null;
+  return fn.slice(1, 4).map((v) => Math.min(255, Number(v)));
+}
+
+/** frameOf is the frame of a box that carries the picture (a step, a
+ * decision, a participant, a table, a start or an end): 45% of the text
+ * over the surface. In the line colour it sat fainter than the arrows
+ * joining it (README dark: line 1.6:1, muted 6.8:1); this draws about 4:1.
+ * A palette it cannot read (var()s) gets the arrows' muted. */
+export function frameOf(pal: Palette): string {
+  return mix(pal.fg, pal.surface, 0.45) ?? pal.muted;
+}
+
+/** focusFillOf is a focus box's ground, 11% of the accent over the
+ * surface, or null where the palette cannot be read: the caller then keeps
+ * the plain ground and marks the focus by a heavier frame instead. */
+export function focusFillOf(pal: Palette, over = pal.surface): string | null {
+  return mix(pal.accent, over, 0.11);
+}
+
+/** focusWeight is a focus frame's stroke: 1.4 over its tint, 2 where there
+ * is no tint to carry it. */
+export function focusWeight(pal: Palette): number {
+  return focusFillOf(pal) === null ? 2 : 1.4;
+}
+
 /** The type ramp, in px, the reference's own: a node in the sans, a start or an
  * end in its bold, a name from the code in the mono, a field or a period in
  * the smaller mono. An arrow's text is a note on the line, a step below the

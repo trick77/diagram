@@ -1,5 +1,53 @@
 import { describe, it, expect } from "vitest";
-import { palette, textWidth, wrap } from "./theme";
+import { frameOf, mix, palette, textWidth, wrap, type Palette } from "./theme";
+
+describe("mix", () => {
+  it("lays one colour over another, as hex", () => {
+    expect(mix("#000000", "#ffffff", 0.5)).toBe("#808080");
+    expect(mix("#fff", "#000", 0.25)).toBe("#404040");
+    expect(mix("rgb(255, 0, 0)", "#000", 1)).toBe("#ff0000");
+    expect(mix("rgb(255 0 0)", "#000", 1)).toBe("#ff0000");
+  });
+
+  it("gives up on what it cannot read, so the caller keeps a role", () => {
+    expect(mix("var(--diagram-fg)", "#000", 0.5)).toBeNull();
+    expect(mix("#000", "teal", 0.5)).toBeNull();
+    expect(mix("#000", "hsl(0 0% 50%)", 0.5)).toBeNull();
+  });
+
+  it("will not mix over a see-through colour: it would mix over black", () => {
+    expect(mix("#fff", "rgba(0, 0, 0, 0)", 0.5)).toBeNull();
+    expect(mix("#fff", "rgb(0 0 0 / 0.5)", 0.5)).toBeNull();
+    expect(mix("#fff", "#00000080", 0.5)).toBeNull();
+    expect(mix("#fff", "rgba(0, 0, 0, 1)", 0.5)).toBe("#808080");
+    expect(mix("#fff", "#000000ff", 0.5)).toBe("#808080");
+  });
+
+  it("clamps what runs past a channel or a share", () => {
+    expect(mix("rgb(300, 0, 0)", "#000", 1)).toBe("#ff0000");
+    expect(mix("#fff", "#000", 2)).toBe("#ffffff");
+  });
+});
+
+describe("frameOf", () => {
+  const pal: Palette = {
+    surface: "#151514",
+    fg: "#ece8df",
+    muted: "#a29e94",
+    line: "#3b3935",
+    tint: "#201f1c",
+    accent: "#d97757",
+    warn: "#e3a33f",
+    sans: "s",
+    mono: "m",
+  };
+  it("frames a box in 45% of the text over the surface", () => {
+    expect(frameOf(pal)).toBe("#76746f");
+  });
+  it("falls back on the arrows' muted where the palette is var()s", () => {
+    expect(frameOf({ ...pal, fg: "var(--diagram-fg)" })).toBe(pal.muted);
+  });
+});
 
 describe("palette", () => {
   it("reads every role off the document, and keeps a var() for a token it lacks", () => {
