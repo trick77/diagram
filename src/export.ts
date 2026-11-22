@@ -11,14 +11,49 @@
  * lacks only its ground: on the page the dark panel is the card's, not the
  * SVG's, and in a file a viewer paints white behind it and the warm off-white
  * labels all but disappear. The ground is read off the card rather than
- * named here, so there is one copy of the token. */
+ * named here, so there is one copy of the token. An own drawing brings its
+ * ground along: its canvas's fill, ahead of the page's, which showed in the
+ * canvas's round corners (and with no ground at all, see-through ones). */
 export function toSvgFile(
   drawn: { svg: string },
   card: Element | null,
 ): string {
-  const ground = card ? groundOf(card) : null;
+  const ground = canvasFill(drawn.svg) ?? (card ? groundOf(card) : null);
   if (ground === null) return drawn.svg;
   return withGround(drawn.svg, ground);
+}
+
+/** canvasFill is the fill of an own drawing's round-cornered canvas
+ * (../draw.ts svg()): the root's first element after its defs, a rect over
+ * the whole viewBox. null for a mermaid drawing, which has none, and for a
+ * drawing already grounded, whose first element is a square ground. */
+function canvasFill(svg: string): string | null {
+  const m =
+    /^\s*(?:<\?xml[^>]*>\s*)?<svg\b([^>]*)>\s*(?:<defs\b[^>]*\/>|<defs\b[^>]*>[\s\S]*?<\/defs>)?\s*(<rect\b[^>]*>)/.exec(
+      svg,
+    );
+  if (!m) return null;
+  const vb = /\sviewBox="([^"]*)"/
+    .exec(m[1])?.[1]
+    .trim()
+    .split(/[\s,]+/);
+  const attr = (n: string) => new RegExp(`\\s${n}="([^"]*)"`).exec(m[2])?.[1];
+  const fill = attr("fill");
+  const round = parseFloat(attr("rx") ?? attr("ry") ?? "0") > 0;
+  const covers =
+    vb?.length === 4 &&
+    (attr("x") ?? "0") === vb[0] &&
+    (attr("y") ?? "0") === vb[1] &&
+    attr("width") === vb[2] &&
+    attr("height") === vb[3];
+  return round && covers && fill && fill !== "none" ? fill : null;
+}
+
+/** grounded is an own drawing with its canvas's ground under it; any other
+ * drawing as it was. */
+function grounded(svg: string): string {
+  const fill = canvasFill(svg);
+  return fill === null ? svg : withGround(svg, fill);
 }
 
 /** withGround paints a colour under the whole drawing, as its first child so
@@ -155,18 +190,20 @@ export function pngScale(
 }
 
 /** toPng paints a drawing on white, the paper it was drawn for, and encodes
- * it. Through a data: URL, not a blob: URL, which some browsers count as
- * foreign content and then refuse to read back off the canvas. The desktop
- * size is tried first, a phone's second: which one a browser holds is only
- * known by asking it. */
+ * it; an own drawing on its canvas's ground, as toSvgFile does, or white
+ * showed in the canvas's round corners. Through a data: URL, not a blob:
+ * URL, which some browsers count as foreign content and then refuse to read
+ * back off the canvas. The desktop size is tried first, a phone's second:
+ * which one a browser holds is only known by asking it. */
 export async function toPng(svg: string): Promise<Blob> {
   const size = svgSize(svg);
   if (size === null) throw new Error("the drawing states no size");
+  const file = grounded(svg);
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const i = new Image();
     i.onload = () => resolve(i);
     i.onerror = () => reject(new Error("the drawing could not be read"));
-    i.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    i.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(file)}`;
   });
   let last: unknown;
   for (const limit of [desktopCanvas, phoneCanvas]) {
