@@ -357,9 +357,56 @@ describe("DiagramView fitting its drawing", () => {
     expect(scaleIn(1000, 600, 1600, 2000)).toBeCloseTo(0.5625, 3);
   });
 
-  it("fits a phone's screen both ways when the height costs little", () => {
-    expect(scaleIn(390, 740, 1150, 2200)).toBeCloseTo(740 / 2200, 3);
-    expect(scaleIn(390, 800, 1150, 783)).toBeCloseTo(390 / 1150, 3);
+  // A 22-box map (1285px) fitted to a phone drew at 0.27, its text ~3.5px.
+  // The width shrinks no drawing below half: past it the body scrolls.
+  it("keeps a wide drawing on a phone at half size, scrolling", () => {
+    expect(scaleIn(390, 740, 1285, 1256)).toBeCloseTo(0.5, 3);
+    expect(scaleIn(390, 740, 1150, 2200)).toBeCloseTo(0.5, 3);
+    expect(scaleIn(390, 800, 1150, 783)).toBeCloseTo(0.5, 3);
+  });
+
+  it("fits a phone's screen whole while that stays above half", () => {
+    expect(scaleIn(390, 740, 600, 400)).toBeCloseTo(390 / 600, 3);
+    expect(scaleIn(390, 740, 700, 1300)).toBeCloseTo(390 / 700, 3);
+  });
+
+  // Not past a phone's width: a split-screen window or a tablet column
+  // fits a wide drawing to its width as before, no sideways scroll.
+  it("keeps the half-size floor to a phone's room", () => {
+    expect(scaleIn(520, 740, 1285, 1256)).toBeCloseTo(520 / 1285, 3);
+    expect(scaleIn(640, 740, 1600, 1000)).toBeCloseTo(640 / 1600, 3);
+  });
+
+  // The body scrolls both ways and leaves touch to the browser: pan and
+  // pinch-zoom. The wrapper takes its fitted width past the body's, its
+  // auto margins centring it only while it fits, the body's items at the
+  // start, so its left edge stays in reach (a centred overflow spills out
+  // of the scroll on the left).
+  it("lets the body scroll a drawing wider than the screen", () => {
+    room(390, 800);
+    const wrapper = shown(
+      '<svg width="1285" height="1256" viewBox="0 0 1285 1256"></svg>',
+    );
+    const body = wrapper.parentElement as HTMLElement;
+    expect(parseFloat(wrapper.style.width)).toBeCloseTo(642.5, 1);
+    expect(wrapper.className).not.toContain("max-w-full");
+    expect(wrapper.className).toContain("mx-auto");
+    expect(body.className).toContain("justify-items-start");
+    expect(body.className).not.toContain("place-items-center");
+    expect(body.className).toContain("overflow-auto");
+    expect(body.className).not.toMatch(/overflow-hidden|touch-none/);
+    expect(body.style.touchAction).toBe("");
+  });
+
+  // Measured and fitted, a drawing is still held to the body: a room read
+  // a pixel wide at a browser zoom never scrolls it sideways.
+  it("holds a fitted drawing to the body on a desktop", () => {
+    room(1200, 900);
+    const wrapper = shown(
+      '<svg width="1600" height="400" viewBox="0 0 1600 400"></svg>',
+    );
+    expect(parseFloat(wrapper.style.width)).toBeLessThanOrEqual(1200);
+    expect(wrapper.className).toContain("max-w-full");
   });
 
   it("shrinks a wide one to the width, and never grows a small one", () => {

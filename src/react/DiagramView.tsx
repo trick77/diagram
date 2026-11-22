@@ -26,7 +26,8 @@ const chrome = 2 * 24 + 2 * 16;
  * must have more room than the page, not less. On a window just over the
  * column's width the sheet's padding leaves a wide drawing a few pixels
  * under the page's (almanach user's choice, 2026-11-01): the whole drawing
- * in view, a phone's included, beats a 1:1 crop that has to be panned.
+ * in view beats a 1:1 crop that has to be panned. Down to half size only
+ * (useFit): a wide one on a phone is panned and pinch-zoomed there.
  *
  * The shell is the app's own overlay.
  */
@@ -95,16 +96,22 @@ export function DiagramView({
           implicit one grows to the drawing, the wrapper's max-w-full then
           caps nothing, and a wide drawing scrolled sideways (1578px in a
           1198px body). A flex column, so a tall one scrolls here instead
-          of overflowing the sheet's max height. */}
+          of overflowing the sheet's max height. On a phone it stops
+          shrinking at half size: the body scrolls both ways, touch left
+          to the browser for pan and pinch-zoom. Items at the start: a
+          centred overflow spilled out of the scroll on the left, out of
+          reach. */}
       <div
         ref={body}
-        className="grid min-h-0 flex-1 grid-cols-1 place-items-center overflow-auto p-6"
+        className="grid min-h-0 flex-1 grid-cols-1 items-center justify-items-start overflow-auto p-6"
       >
         {/* As wide as the drawing, so an overlay's percent boxes land on
-            its nodes; the grid centres it. */}
+            its nodes; auto margins centre it while it fits. Held to the
+            body unless the phone's floor made it wider (useFit): a room
+            read a pixel wide at a browser zoom never scrolls sideways. */}
         <div
-          className="relative w-max max-w-full"
-          style={fit === null ? undefined : { width: fit }}
+          className={`relative mx-auto w-max${fit?.wider ? "" : " max-w-full"}`}
+          style={fit === null ? undefined : { width: fit.width }}
         >
           {shown !== null && <DiagramSvg svg={shown} title={title} />}
           {overlay}
